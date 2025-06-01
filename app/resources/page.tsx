@@ -42,8 +42,8 @@ export default function ResourcesPage() {
   return (
     <>
       <div className="divide-y divide-gray-200 dark:divide-gray-700">
-        <div className="space-y-2 pb-8 pt-6 md:space-y-5">
-          <h1 className="text-3xl font-extrabold leading-9 tracking-tight text-gray-900 dark:text-gray-100 sm:text-4xl sm:leading-10 md:text-6xl md:leading-14">
+        <div className="space-y-2 pt-6 pb-8 md:space-y-5">
+          <h1 className="text-3xl leading-9 font-extrabold tracking-tight text-gray-900 sm:text-4xl sm:leading-10 md:text-6xl md:leading-14 dark:text-gray-100">
             Resources
           </h1>
           <p className="text-lg leading-7 text-gray-500 dark:text-gray-400">
@@ -54,7 +54,7 @@ export default function ResourcesPage() {
           <div className="space-y-12">
             {resources.map((section) => (
               <div key={section.category} className="space-y-6">
-                <h2 className="text-2xl font-bold leading-8 tracking-tight text-gray-900 dark:text-gray-100">
+                <h2 className="text-2xl leading-8 font-bold tracking-tight text-gray-900 dark:text-gray-100">
                   {section.category}
                 </h2>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -64,9 +64,9 @@ export default function ResourcesPage() {
                       href={item.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="transform rounded-xl border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg dark:hover:shadow-gray-800 transition duration-200 hover:-translate-y-1"
+                      className="transform rounded-xl border border-gray-200 p-6 transition duration-200 hover:-translate-y-1 hover:shadow-lg dark:border-gray-700 dark:hover:shadow-gray-800"
                     >
-                      <h3 className="text-xl font-bold leading-8 tracking-tight text-primary-500">
+                      <h3 className="text-primary-500 text-xl leading-8 font-bold tracking-tight">
                         {item.title}
                       </h3>
                       <p className="mt-2 text-gray-600 dark:text-gray-400">{item.description}</p>
@@ -80,4 +80,4 @@ export default function ResourcesPage() {
       </div>
     </>
   )
-} 
+}
