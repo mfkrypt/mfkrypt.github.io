@@ -13,7 +13,7 @@ export default function Writeups() {
             Writeups
           </h1>
           <p className="text-lg leading-7 text-gray-500 dark:text-gray-400">
-              Some featured CTF and HTB writeups
+          Some featured CTF and HTB writeups
           </p>
         </div>
         <div className="container py-12">
