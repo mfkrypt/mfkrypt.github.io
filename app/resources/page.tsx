@@ -47,7 +47,7 @@ export default function ResourcesPage() {
             Resources
           </h1>
           <p className="text-lg leading-7 text-gray-500 dark:text-gray-400">
-            A curated collection of useful tools and learning resources
+            THIS PAGE IS A PLACEHOLDER FOR NOW...
           </p>
         </div>
         <div className="container py-12">

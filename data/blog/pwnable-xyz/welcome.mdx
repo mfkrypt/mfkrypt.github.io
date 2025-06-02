@@ -6,6 +6,17 @@ draft: false
 summary: malloc failing by integer overflow causing NULL
 ---
 
+## Overview
+
+malloc failing by integer overflow causing NULL which satisfies a
+condition in getting the flag
+
+![Description](/static/images/pwnablexyz/4.png)
+
+<TOCInline toc={props.toc} exclude="Overview" />
+
+***
+
 ## Analysis
 
 We are given a binary with the following protections
@@ -28,7 +39,7 @@ We can observe all protections are enabled. Running the binary itself reveals a 
 
 Let us now check the decompiled source
 
-```c
+```c 
 undefined8 main(void)
 
 {
@@ -146,6 +157,8 @@ NULL + length - 1 = length - 1
 ```
 
 That `length - 1` ends up being **exactly** the leaked address `malloc_ret` . So to make up for this we need to input the `leak_address + 1` to cancel the `length - 1` . But we need to convert them into a `str` type because `scanf` here expects a string input of the `unsigned long int` .
+
+***
 
 ## Exploit
 

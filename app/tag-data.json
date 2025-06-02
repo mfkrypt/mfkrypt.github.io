@@ -1,4 +1,7 @@
 {
+  "pwn": 1,
+  "malloc": 1,
+  "pwnablexyz": 1,
   "next-js": 5,
   "tailwind": 3,
   "guide": 5,
