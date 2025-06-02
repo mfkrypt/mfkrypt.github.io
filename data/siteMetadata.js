@@ -5,7 +5,7 @@ const siteMetadata = {
   headerTitle: "mfkrypt's void",
   description: 'A blog created with Next.js and Tailwind.css',
   language: 'en-us',
-  theme: 'light', // system, dark or light
+  theme: 'dark', // system, dark or light
   siteUrl: 'https://tailwind-nextjs-starter-blog.vercel.app',
   siteRepo: 'https://github.com/timlrx/tailwind-nextjs-starter-blog',
   siteLogo: `${process.env.BASE_PATH || ''}/static/images/logo.png`,

@@ -10,9 +10,12 @@
   --font-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
     'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
-  /* Colors */
-  /* Copied from https://tailwindcss.com/docs/theme#default-theme-variable-reference */
-  --color-primary-50: oklch(0.971 0.014 343.198);
+  /* Colors 
+  Copied from https://tailwindcss.com/docs/theme#default-theme-variable-reference */
+
+  /* Red */
+
+  /* --color-primary-50: oklch(0.971 0.014 343.198);
   --color-primary-100: oklch(0.948 0.028 342.258);
   --color-primary-200: oklch(0.899 0.061 343.231);
   --color-primary-300: oklch(0.823 0.12 346.018);
@@ -22,7 +25,35 @@
   --color-primary-700: oklch(0.525 0.223 3.958);
   --color-primary-800: oklch(0.459 0.187 3.815);
   --color-primary-900: oklch(0.408 0.153 2.432);
-  --color-primary-950: oklch(0.284 0.109 3.907);
+  --color-primary-950: oklch(0.284 0.109 3.907); */
+
+  /* Purple */
+  
+  /* --color-primary-50: oklch(0.977 0.014 308.299);
+  --color-primary-100: oklch(0.946 0.033 307.174);
+  --color-primary-200: oklch(0.902 0.063 306.703);
+  --color-primary-300: oklch(0.827 0.119 306.383);
+  --color-primary-400: oklch(0.714 0.203 305.504);
+  --color-primary-500: oklch(0.627 0.265 303.9);
+  --color-primary-600: oklch(0.558 0.288 302.321);
+  --color-primary-700: oklch(0.496 0.265 301.924);
+  --color-primary-800: oklch(0.438 0.218 303.724);
+  --color-primary-900: oklch(0.381 0.176 304.987);
+  --color-primary-950: oklch(0.291 0.149 302.717); */
+
+  --color-primary-50: oklch(0.969 0.016 293.756);
+  --color-primary-100: oklch(0.943 0.029 294.588);
+  --color-primary-200: oklch(0.894 0.057 293.283);
+  --color-primary-300: oklch(0.811 0.111 293.571);
+  --color-primary-400: oklch(0.702 0.183 293.541);
+  --color-primary-500: oklch(0.606 0.25 292.717);
+  --color-primary-600: oklch(0.541 0.281 293.009);
+  --color-primary-700: oklch(0.491 0.27 292.581);
+  --color-primary-800: oklch(0.432 0.232 292.759);
+  --color-primary-900: oklch(0.38 0.189 293.745);
+  --color-primary-950: oklch(0.283 0.141 291.089);
+
+
 
   --color-gray-50: oklch(0.985 0.002 247.839);
   --color-gray-100: oklch(0.967 0.003 264.542);
@@ -35,6 +66,8 @@
   --color-gray-800: oklch(0.278 0.033 256.848);
   --color-gray-900: oklch(0.21 0.034 264.665);
   --color-gray-950: oklch(0.13 0.028 261.692);
+
+  
 
   /* Line heights */
   --line-height-11: 2.75rem;
