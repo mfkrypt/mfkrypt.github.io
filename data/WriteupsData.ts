@@ -14,10 +14,10 @@ const WriteupsData: Writeups[] = [
     href: '/blog/htb/machines/linux/sightless',
   },
   {
-    title: 'HTB - Underpass',
-    description: `Discovered SNMP service on UDP port which reveals a daloRADIUS server web app with default credentials. Gained user access by credentials leak in the dashboard. User was allowed to run mosh-server with sudo permissions which enabled us to start a mosh-client and gain root access.`,
-    imgSrc: '/static/images/htb/linux/underpass/13.png',
-    href: '/blog/htb/machines/linux/underpass',
+    title: 'HTB ProLabs - Dante',
+    description: `Dante ProLab is a simulated network with 14 machines and 27 flags. The critical learning in this lab was Network Pivoting`,
+    imgSrc: '/static/images/dante.png',
+    href: 'https://mfkrypt.gitbook.io/stuff/ctf-writeups/hackthebox/prolabs/dante',
   },
 ]
 
