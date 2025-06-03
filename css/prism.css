@@ -1,12 +1,12 @@
 /**
- * Solarized dark atom theme for `prism.js`
+ * atom-dark theme for `prism.js`
  * Based on Atom's `atom-dark` theme: https://github.com/atom/atom-dark-syntax
- * @author Pranay Chauhan (@PranayChauhan2516)
+ * @author Joe Gibson (@gibsjose)
  */
 
  code[class*="language-"],
  pre[class*="language-"] {
-   color: #839496;
+   color: #c5c8c6;
    text-shadow: 0 1px rgba(0, 0, 0, 0.3);
    font-family: Inconsolata, Monaco, Consolas, 'Courier New', Courier, monospace;
    direction: ltr;
@@ -36,7 +36,7 @@
  
  :not(pre) > code[class*="language-"],
  pre[class*="language-"] {
-   background: #002b36;
+   background: #1d1f21;
  }
  
  /* Inline code */
@@ -49,11 +49,11 @@
  .token.prolog,
  .token.doctype,
  .token.cdata {
-   color: #586e75;
+   color: #7C7C7C;
  }
  
  .token.punctuation {
-   color: #93a1a1;
+   color: #c5c8c6;
  }
  
  .namespace {
@@ -63,7 +63,7 @@
  .token.property,
  .token.keyword,
  .token.tag {
-   color: #268bd2;
+   color: #96CBFE;
  }
  
  .token.class-name {
@@ -73,16 +73,16 @@
  
  .token.boolean,
  .token.constant {
-   color: #b58900;
+   color: #99CC99;
  }
  
  .token.symbol,
  .token.deleted {
-   color: #dc322f;
+   color: #f92672;
  }
  
  .token.number {
-   color: #859900;
+   color: #FF73FD;
  }
  
  .token.selector,
@@ -91,27 +91,15 @@
  .token.char,
  .token.builtin,
  .token.inserted {
-   color: #859900;
+   color: #A8FF60;
  }
  
  .token.variable {
-   color: #268bd2;
+   color: #C6C5FE;
  }
  
  .token.operator {
    color: #EDEDED;
- }
- 
- .token.function {
-   color: #268bd2;
- }
- 
- .token.regex {
-   color: #E9C062;
- }
- 
- .token.important {
-   color: #fd971f;
  }
  
  .token.entity {
@@ -128,6 +116,23 @@
    color: #87C38A;
  }
  
+ .token.atrule,
+ .token.attr-value {
+   color: #F9EE98;
+ }
+ 
+ .token.function {
+   color: #DAD085;
+ }
+ 
+ .token.regex {
+   color: #E9C062;
+ }
+ 
+ .token.important {
+   color: #fd971f;
+ }
+ 
  .token.important,
  .token.bold {
    font-weight: bold;
@@ -135,9 +140,4 @@
  
  .token.italic {
    font-style: italic;
- }
- 
- .token.atrule,
- .token.attr-value {
-   color: #F9EE98;
  }

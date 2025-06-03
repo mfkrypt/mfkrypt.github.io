@@ -1,0 +1,209 @@
+---
+title: HTB - Underpass (easy)
+date: '2025-04-09'
+tags: ['machine', 'linux', 'daloradius', 'mosh-server']
+draft: false
+summary: Discovered SNMP service on UDP port which reveals a daloRADIUS server web app with default credentials. Gained user access by credentials leak in the dashboard. User was allowed to run mosh-server with sudo permissions which enabled us to start a mosh-client and gain root access.
+---
+
+<TOCInline toc={props.toc} asDisclosure/>
+
+## Scanning
+
+Initially, i scanned for TCP ports but found nothing interesting just default Apache webpage
+
+![Description](/static/images/htb/linux/underpass/1.png)
+
+Then, I decided to do a UDP scan
+
+![Description](/static/images/htb/linux/underpass/2.png)
+
+***
+
+## Fuzzing
+
+Used ffuf to fuzz for subdomains
+
+```
+❯ ffuf -u http://underpass.htb -H "Host: FUZZ.underpass.htb" -w /usr/share/wordlists/seclists/Discovery/Web-Content/common.txt -fs 10671
+
+        /'___\  /'___\           /'___\       
+       /\ \__/ /\ \__/  __  __  /\ \__/       
+       \ \ ,__\\ \ ,__\/\ \/\ \ \ \ ,__\      
+        \ \ \_/ \ \ \_/\ \ \_\ \ \ \ \_/      
+         \ \_\   \ \_\  \ \____/  \ \_\       
+          \/_/    \/_/   \/___/    \/_/       
+
+       v2.1.0-dev
+________________________________________________
+
+ :: Method           : GET
+ :: URL              : http://underpass.htb
+ :: Wordlist         : FUZZ: /usr/share/wordlists/seclists/Discovery/Web-Content/common.txt
+ :: Header           : Host: FUZZ.underpass.htb
+ :: Follow redirects : false
+ :: Calibration      : false
+ :: Timeout          : 10
+ :: Threads          : 40
+ :: Matcher          : Response status: 200-299,301,302,307,401,403,405,500
+ :: Filter           : Response size: 10671
+________________________________________________
+
+:: Progress: [4734/4734] :: Job [1/1] :: 501 req/sec :: Duration: [0:00:07] :: Errors: 0 ::
+```
+
+Also fuzzed for directories and found some 403's
+
+```
+❯ ffuf -u http://underpass.htb/FUZZ -w /usr/share/wordlists/seclists/Discovery/Web-Content/common.txt
+
+        /'___\  /'___\           /'___\       
+       /\ \__/ /\ \__/  __  __  /\ \__/       
+       \ \ ,__\\ \ ,__\/\ \/\ \ \ \ ,__\      
+        \ \ \_/ \ \ \_/\ \ \_\ \ \ \ \_/      
+         \ \_\   \ \_\  \ \____/  \ \_\       
+          \/_/    \/_/   \/___/    \/_/       
+
+       v2.1.0-dev
+________________________________________________
+
+ :: Method           : GET
+ :: URL              : http://underpass.htb/FUZZ
+ :: Wordlist         : FUZZ: /usr/share/wordlists/seclists/Discovery/Web-Content/common.txt
+ :: Follow redirects : false
+ :: Calibration      : false
+ :: Timeout          : 10
+ :: Threads          : 40
+ :: Matcher          : Response status: 200-299,301,302,307,401,403,405,500
+________________________________________________
+
+.hta                    [Status: 403, Size: 278, Words: 20, Lines: 10, Duration: 45ms]
+.htaccess               [Status: 403, Size: 278, Words: 20, Lines: 10, Duration: 46ms]
+.htpasswd               [Status: 403, Size: 278, Words: 20, Lines: 10, Duration: 130ms]
+index.html              [Status: 200, Size: 10671, Words: 3496, Lines: 364, Duration: 18ms]
+server-status           [Status: 403, Size: 278, Words: 20, Lines: 10, Duration: 18ms]
+:: Progress: [4734/4734] :: Job [1/1] :: 454 req/sec :: Duration: [0:00:04] :: Errors: 0 ::
+```
+
+Anyways back to the UDP scan result. Can see just now, port 161 is open with the service being SNMP. So we will need to do some SNMP Enumeration. At first, I used `snmpcheck` but I don't know why it wasn't working. Sooo, I used `snmpwalk` . Looked up for the command syntax [here](https://gabb4r.gitbook.io/oscp-notes/service-enumeration/snmp-enumeraion).&#x20;
+
+```
+❯ snmpwalk -c public -v 2c 10.10.11.48 
+iso.3.6.1.2.1.1.1.0 = STRING: "Linux underpass 5.15.0-126-generic #136-Ubuntu SMP Wed Nov 6 10:38:22 UTC 2024 x86_64"
+iso.3.6.1.2.1.1.2.0 = OID: iso.3.6.1.4.1.8072.3.2.10
+iso.3.6.1.2.1.1.3.0 = Timeticks: (225710) 0:37:37.10
+iso.3.6.1.2.1.1.4.0 = STRING: "steve@underpass.htb"
+iso.3.6.1.2.1.1.5.0 = STRING: "UnDerPass.htb is the only daloradius server in the basin!"
+iso.3.6.1.2.1.1.6.0 = STRING: "Nevada, U.S.A. but not Vegas"
+iso.3.6.1.2.1.1.7.0 = INTEGER: 72
+iso.3.6.1.2.1.1.8.0 = Timeticks: (1) 0:00:00.01
+iso.3.6.1.2.1.1.9.1.2.1 = OID: iso.3.6.1.6.3.10.3.1.1
+iso.3.6.1.2.1.1.9.1.2.2 = OID: iso.3.6.1.6.3.11.3.1.1
+iso.3.6.1.2.1.1.9.1.2.3 = OID: iso.3.6.1.6.3.15.2.1.1
+iso.3.6.1.2.1.1.9.1.2.4 = OID: iso.3.6.1.6.3.1
+iso.3.6.1.2.1.1.9.1.2.5 = OID: iso.3.6.1.6.3.16.2.2.1
+iso.3.6.1.2.1.1.9.1.2.6 = OID: iso.3.6.1.2.1.49
+iso.3.6.1.2.1.1.9.1.2.7 = OID: iso.3.6.1.2.1.50
+iso.3.6.1.2.1.1.9.1.2.8 = OID: iso.3.6.1.2.1.4
+iso.3.6.1.2.1.1.9.1.2.9 = OID: iso.3.6.1.6.3.13.3.1.3
+iso.3.6.1.2.1.1.9.1.2.10 = OID: iso.3.6.1.2.1.92
+iso.3.6.1.2.1.1.9.1.3.1 = STRING: "The SNMP Management Architecture MIB."
+iso.3.6.1.2.1.1.9.1.3.2 = STRING: "The MIB for Message Processing and Dispatching."
+iso.3.6.1.2.1.1.9.1.3.3 = STRING: "The management information definitions for the SNMP User-based Security Model."
+iso.3.6.1.2.1.1.9.1.3.4 = STRING: "The MIB module for SNMPv2 entities"
+iso.3.6.1.2.1.1.9.1.3.5 = STRING: "View-based Access Control Model for SNMP."
+iso.3.6.1.2.1.1.9.1.3.6 = STRING: "The MIB module for managing TCP implementations"
+iso.3.6.1.2.1.1.9.1.3.7 = STRING: "The MIB module for managing UDP implementations"
+iso.3.6.1.2.1.1.9.1.3.8 = STRING: "The MIB module for managing IP and ICMP implementations"
+iso.3.6.1.2.1.1.9.1.3.9 = STRING: "The MIB modules for managing SNMP Notification, plus filtering."
+iso.3.6.1.2.1.1.9.1.3.10 = STRING: "The MIB module for logging SNMP Notifications."
+iso.3.6.1.2.1.1.9.1.4.1 = Timeticks: (1) 0:00:00.01
+iso.3.6.1.2.1.1.9.1.4.2 = Timeticks: (1) 0:00:00.01
+iso.3.6.1.2.1.1.9.1.4.3 = Timeticks: (1) 0:00:00.01
+iso.3.6.1.2.1.1.9.1.4.4 = Timeticks: (1) 0:00:00.01
+iso.3.6.1.2.1.1.9.1.4.5 = Timeticks: (1) 0:00:00.01
+iso.3.6.1.2.1.1.9.1.4.6 = Timeticks: (1) 0:00:00.01
+iso.3.6.1.2.1.1.9.1.4.7 = Timeticks: (1) 0:00:00.01
+iso.3.6.1.2.1.1.9.1.4.8 = Timeticks: (1) 0:00:00.01
+iso.3.6.1.2.1.1.9.1.4.9 = Timeticks: (1) 0:00:00.01
+iso.3.6.1.2.1.1.9.1.4.10 = Timeticks: (1) 0:00:00.01
+iso.3.6.1.2.1.25.1.1.0 = Timeticks: (226774) 0:37:47.74
+iso.3.6.1.2.1.25.1.2.0 = Hex-STRING: 07 E8 0C 16 0E 3A 2E 00 2B 00 00 
+iso.3.6.1.2.1.25.1.3.0 = INTEGER: 393216
+iso.3.6.1.2.1.25.1.4.0 = STRING: "BOOT_IMAGE=/vmlinuz-5.15.0-126-generic root=/dev/mapper/ubuntu--vg-ubuntu--lv ro net.ifnames=0 biosdevname=0
+"
+iso.3.6.1.2.1.25.1.5.0 = Gauge32: 10
+iso.3.6.1.2.1.25.1.6.0 = Gauge32: 344
+iso.3.6.1.2.1.25.1.7.0 = INTEGER: 0
+iso.3.6.1.2.1.25.1.7.0 = No more variables left in this MIB View (It is past the end of the MIB tree)
+```
+
+The most noticable part is this
+
+```
+iso.3.6.1.2.1.1.4.0 = STRING: "steve@underpass.htb"
+iso.3.6.1.2.1.1.5.0 = STRING: "UnDerPass.htb is the only daloradius server in the basin!"
+iso.3.6.1.2.1.1.6.0 = STRING: "Nevada, U.S.A. but not Vegas"
+```
+
+It mentions the local domain has a daloRADIUS server setup. According to Google, daloRADIUS is an advanced RADIUS web platform aimed at managing hotspots and general-purpose ISP deployments.
+
+Since it mentions 'web platform' and the initial TCP scan showed HTTP was up, I tried to look for the login page in the [Github repo](https://github.com/lirantal/daloradius)
+
+And after looking around, I found the path to the login page
+
+![Description](/static/images/htb/linux/underpass/3.png)
+
+***
+
+## Gaining Access
+
+![Description](/static/images/htb/linux/underpass/4.png)
+
+Now, the funny thing is I also looked for the default credentials in the github repo but I think I got lost so I just make a quick google search and Whaddayaknow...
+
+![Description](/static/images/htb/linux/underpass/5.png)
+
+We are met with the dashboard after logging in as administrator
+
+![Description](/static/images/htb/linux/underpass/6.png)
+
+There is 1 available user
+
+![Description](/static/images/htb/linux/underpass/7.png)
+
+Plaintext password but looking at /users/pref-auth-password-edit.php in the repo, it shows us users password is hashed. Therefore, I will crack it using Crackstation
+
+![Description](/static/images/htb/linux/underpass/8.png)
+
+Anddd we got the password. Let us SSH into the machine as user 'svcMosh' and user flag is secured
+
+![Description](/static/images/htb/linux/underpass/9.png)
+
+***
+
+## Privesc
+
+Now we use `sudo -l` to look for misconfigured commands that user can run with `sudo`
+
+![Description](/static/images/htb/linux/underpass/10.png)
+
+Firstly, this is my first time hearing about `mosh-server` and the name of it really threw me off because how of funny it sounds LOL. Anyways, I did some research and experiment with some commands and it seems that with the server it also has a client to connect according to the [docs](https://mosh.org/).
+
+I had to install `mosh` on my local machine to connect to the server.
+
+Running the server itself on the target machine gave a port to connect to and a key that changes randomly every time it executed
+
+![Description](/static/images/htb/linux/underpass/11.png)
+
+I spent quite a while on the syntax for the `mosh-client` but according to this Linux-manual [website](https://linux.die.net/man/1/mosh-client), the syntax would be&#x20;
+
+```
+MOSH_KEY=KEY mosh-client IP PORT
+```
+
+Generating a new key for the server and entering the command above will immediately give us root shell session in the `mosh-client` tab
+
+![Description](/static/images/htb/linux/underpass/12.png)
+
+Just like that, root flag secured!
