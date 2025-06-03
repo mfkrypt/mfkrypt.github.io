@@ -12,6 +12,7 @@ summary: Anonymous SMB access is allowed which leads to a password leak and also
 
 ```
 ❯ nmap -sV -sC -Pn 10.10.11.35
+
 </strong>Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-02-08 02:23 +08
 Nmap scan report for cicada.htb (10.10.11.35)
 Host is up (0.032s latency).
@@ -105,6 +106,7 @@ the message hints that the password belongs to some user but we don't know who t
 
 ```
 ❯ nxc smb 10.10.11.35 -u guest -p '' --rid-brute 
+
 SMB         10.10.11.35     445    CICADA-DC        [*] Windows Server 2022 Build 20348 x64 (name:CICADA-DC) (domain:cicada.htb) (signing:True) (SMBv1:False)
 SMB         10.10.11.35     445    CICADA-DC        [+] cicada.htb\guest: 
 SMB         10.10.11.35     445    CICADA-DC        498: CICADA\Enterprise Read-only Domain Controllers (SidTypeGroup)
