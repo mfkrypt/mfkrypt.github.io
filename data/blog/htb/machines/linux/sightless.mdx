@@ -1,12 +1,253 @@
-```
-❯ checksec challenge
+---
+title: HTB - Sightless
+date: '2025-04-09'
+tags: ['machine', 'linux', 'SQLpad', 'docker-jail', 'port-forwarding', 'chrome-pentest']
+draft: false
+summary: Gaining RCE on an SQLpad web app, escaping docker jail and getting user access. Discovered internal host that led to Chrome Debugger Pentesting. Acquiring credentials on a Froxlor Server Management Panel. Gaining root access afterwards by changing PHP-FPM commands to a bash SUID permission change.
+---
 
-[*] '/home/mfkrypt/pwn-learning-notes/pwnablexyz/welcome/challenge'
-    Arch:       amd64-64-little
-    RELRO:      Full RELRO
-    Stack:      Canary found
-    NX:         NX enabled
-    PIE:        PIE enabled
-    FORTIFY:    Enabled
+<TOCInline toc={props.toc} asDisclosure/>
+
+## Scanning
+
+Let's do a normal scan with `-sV` for service version and `-sC` for default script scan.
+
+![Description](/static/images/htb/linux/sightless/1.png)
+
+3 ports are open which are `FTP`, `HTTP`, and `SSH`. The ftp port doesn't allow Anonymous logins, we will need to take note of that
+
+***
+
+## Fuzzing
+
+I used `gobuster` to scan for directories
+
+```
+❯ gobuster dir -u http://sightless.htb -w /usr/share/wordlists/seclists/Discovery/Web-Content/common.txt                     
+===============================================================
+Gobuster v3.6
+by OJ Reeves (@TheColonial) &#x26; Christian Mehlmauer (@firefart)
+===============================================================
+[+] Url:                     http://sightless.htb
+[+] Method:                  GET
+[+] Threads:                 10
+[+] Wordlist:                /usr/share/wordlists/seclists/Discovery/Web-Content/common.txt
+[+] Negative Status codes:   404
+[+] User Agent:              gobuster/3.6
+[+] Timeout:                 10s
+===============================================================
+Starting gobuster in directory enumeration mode
+===============================================================
+/images               (Status: 301) [Size: 178] [--> http://sightless.htb/images/]
+/index.html           (Status: 200) [Size: 4993]
+Progress: 4734 / 4735 (99.98%)
+===============================================================
+Finished
+===============================================================
 ```
 
+Nothing out of the usual. Now, I proceed to check out the web page
+
+![Description](/static/images/htb/linux/sightless/2.png)
+
+The SQLPad button there will redirect to a subdomain.&#x20;
+
+![Description](/static/images/htb/linux/sightless/3.png)
+
+SQLpad is a web app for writing and running SQL queries and visualizing the results. I checked the version at the 'About' section at the top right corner button
+
+![Description](/static/images/htb/linux/sightless/4.png)
+
+***
+
+## Gaining Access
+
+Now, I searched up for some CVEs online and found one
+
+[SQLpad RCE Exploit (CVE-2022-0944)](https://github.com/0xRoqeeb/sqlpad-rce-exploit-CVE-2022-0944)
+
+According to the Github repository and some articles, there is  a vulnerability that allows for Remote Code Execution (RCE) via the `/api/test-connection` endpoint. Apart from the exploit. Inputting the command below in the Database form field will also result in a RCE
+
+```javascript
+{{ process.mainModule.require('child_process').exec('id>/tmp/pwn') }}
+```
+
+Running the exploit will return a JSON response and our listener will get a shell
+
+![Description](/static/images/htb/linux/sightless/5.png)
+
+![Description](/static/images/htb/linux/sightless/6.png)
+
+Firstly, this was quite odd because how was i suddenly root? I checked out the sqlite file and found some interesting users
+
+![Description](/static/images/htb/linux/sightless/7.png)
+
+Then I found a `docker-entrypoint` beyond `/home` . This meant that I was in a docker jail or docker container if you may. The goal was to escape it and gain some arbitrary control. That was my initial thought and I tried running some test commands like `/etc/passwd`
+
+![Description](/static/images/htb/linux/sightless/8.png)
+
+and I thought if this container is run as root I should be able to read `/etc/shadow.`&#x20;
+
+![Description](/static/images/htb/linux/sightless/9.png)
+
+And there we go, can see there is a user michael. We can attempt to crack his hashed password.
+
+![Description](/static/images/htb/linux/sightless/10.png)
+
+User flag secured
+
+***
+
+## Privilege Escalation
+
+We run Linpeas on the target machine
+
+```
+michael@sightless:~$ ls
+linpeas.sh  user.txt
+michael@sightless:~$ ./linpeas.sh 
+```
+
+![Description](/static/images/htb/linux/sightless/11.png)
+
+We can see there is a PE vector being highlighted it may be useful later. Keep digging through the Linpeas results
+
+![Description](/static/images/htb/linux/sightless/12.png)
+
+Now, there are some interesting stuff going on here. These are ports being used for services on the local / target machine. Our priority will start with the port `8080` as it is a common HTTP services port often used for management dashboards or alternate web servers.
+
+Now how do we access the web page of the target machine?
+
+The answer is **Port forwarding**.
+
+There are multiple ways but the easiest would be using `ssh` as we have user access to the machine
+
+```
+❯ sudo ssh -L 8081:127.0.0.1:8080 michael@10.10.11.32
+```
+
+using the `-L` option we forward our 8081 local port to access the machine port 8080
+
+After doing that, we are met with this page&#x20;
+
+![Description](/static/images/htb/linux/sightless/13.png)
+
+I also scratched my head here a few minutes. Then I decided to look at the Linpeas result again and found this
+
+![Description](/static/images/htb/linux/sightless/14.png)
+
+It indicates that the port has a subdomain attached to it. We need to add this line to `/etc/hosts.`
+
+```
+127.0.0.1    admin.sightless.htb
+```
+
+And then, we  need to port forward the subdomain
+
+```
+❯ ssh -L 8082:admin.sightless.htb:8080 michael@10.10.11.32
+```
+
+After doing that, we are able to access the login page.
+
+![Description](/static/images/htb/linux/sightless/15.png)
+
+Now, I got stuck here for a while and then remembered the Linpeas result scan that highlighted a PE vector which was `--remote-debugging-port` and tried to google about it. Found this [cheatsheet](https://exploit-notes.hdks.org/exploit/linux/privilege-escalation/chrome-remote-debugger-pentesting/) about Chrome Remote Debugger Pentesting
+
+![Description](/static/images/htb/linux/sightless/16.png)
+
+The highlighted PE vector also had a port 0 assigned to it, meaning the remote port is accessed dynamically and always changing and not static.
+
+Okay so meaning, we have to look back at the available ports in Linpeas as it is one of them. By filtering the ports according to known services like FTP, MYSQL, Node.js and etc. We should end up with 3 available ports. Need to try one by one and port forward them.
+
+&#x20;For me it was port 37319
+
+```
+❯ sudo ssh -L 37319:127.0.0.1:37319 michael@10.10.11.32
+```
+
+After setting the configure option there, these two remote targets will appear dynamically
+
+![Description](/static/images/htb/linux/sightless/17.png)
+
+Choosing 'inspect' will let you see the 'bot' logging in and the credentials will be visible in the payload
+
+![Description](/static/images/htb/linux/sightless/18.png)
+
+`admin:ForlorfroxAdmin`
+
+![Description](/static/images/htb/linux/sightless/19.png)
+
+***
+
+## Rabbit Hole
+
+I checked for the available customers and there was 1
+
+![Description](/static/images/htb/linux/sightless/20.png)
+
+There is an FTP account related to the username 'web1' and we can edit the configurations of it including the password
+
+![Description](/static/images/htb/linux/sightless/21.png)
+
+![Description](/static/images/htb/linux/sightless/22.png)
+
+Now we can login into the ftp account using `ftp-ssl` because it has a SSL/TLS encryption setup
+
+![Description](/static/images/htb/linux/sightless/23.png)
+
+In the FTP server has a Keepass extension file, which is a type of database file
+
+![Description](/static/images/htb/linux/sightless/24.png)
+
+I try to crack it using Hashcat
+
+```
+❯ keepass2john Database.kdb | grep -o "$keepass$.*" > Databasekeepass.hash
+```
+
+```
+❯ hashcat -a 0 -m 13400 -o cracked_output.txt --outfile-format 2 Databasekeepass.hash rockyou.txt
+```
+
+![Description](/static/images/htb/linux/sightless/25.png)
+
+I opened the database file using `keepassxc` and got scammed :D
+
+![Description](/static/images/htb/linux/sightless/26.png)
+
+FYI, these credentials does not work. Its a rabbit hole. I was flabbergasted, disappointed, you name it.
+
+***
+
+## Intended Solution
+
+I went back to the Froxlor service page and tried to play with some settings. I received a nudge that it had something to do with the PHP-FPM. So, I googled for publicly available CVEs but none of them was working.
+
+And I received another nudge (couldn't do this without hints), that it can execute commands at the restart command
+
+![Description](/static/images/htb/linux/sightless/27.png)
+
+So in here, I tried inserting a revshell but it was filtered. But we can do something even better like changing the SUID permission of bash(`/usr/bin/bash`) because it is owned by root.
+
+`chmod 4755 /usr/bin/bash`
+
+This allows any a user to drop into a root shell
+
+![Description](/static/images/htb/linux/sightless/28.png)
+
+Save it and Restart the PHP-FPM settings
+
+![Description](/static/images/htb/linux/sightless/29.png)
+
+We need to wait around 1 minute for the command to be executed because a cronjob is set to execute every 1 minute to generate the configfiles meaning it executes the PHP-FPM restart command
+
+![Description](/static/images/htb/linux/sightless/30.png)
+
+Then, in the terminal run `bash` with the `privileged` mode to drop into the root shell
+
+```
+/bin/bash -p
+```
+
+![Description](/static/images/htb/linux/sightless/31.png)

@@ -22,6 +22,13 @@ const WriteupsData: Writeups[] = [
     imgSrc: '/static/images/time-machine.jpg',
     href: '/blog/the-time-machine',
   },
+  {
+    title: 'HTB Sightless',
+    description: `Gaining RCE on an SQLpad web app, escaping docker jail and getting user access. Discovered internal host that led to Chrome Debugger Pentesting. Acquiring credentials on a 
+    Froxlor Server Management Panel. Gaining root access afterwards by changing PHP-FPM commands to a bash SUID permission change.`,
+    imgSrc: '/static/images/htb/linux/sightless/32.png',
+    href: '/blog/htb/machines/linux/sightless',
+  },
 ]
 
 export default WriteupsData
