@@ -8,35 +8,75 @@ export const metadata: Metadata = {
 export default function ResourcesPage() {
   const resources = [
     {
-      category: 'Security Tools',
+      category: 'All Rounder',
       items: [
         {
-          title: 'Burp Suite',
-          description: 'An integrated platform for performing security testing of web applications',
-          link: 'https://portswigger.net/burp',
+          title: "Jorian Woltjer's notes",
+          description: 'Security testing guide',
+          link: 'https://book.jorianwoltjer.com/',
         },
         {
-          title: 'Wireshark',
-          description: 'The worlds foremost and widely-used network protocol analyzer',
-          link: 'https://www.wireshark.org/',
+          title: "Jorian Woltjer's blog",
+          description: 'More in depth writeups',
+          link: 'https://book.jorianwoltjer.com/',
+        },
+        {
+          title: "The Hacker Recipes",
+          description: 'More security testing guide',
+          link: 'https://www.thehacker.recipes/',
         },
       ],
     },
     {
-      category: 'Learning Platforms',
+      category: 'Offensive Security',
       items: [
         {
-          title: 'TryHackMe',
-          description: 'Learn cybersecurity through hands-on exercises and labs',
-          link: 'https://tryhackme.com',
-        },
-        {
-          title: 'HackTheBox',
-          description: 'Cybersecurity training platform with real-world scenarios',
-          link: 'https://www.hackthebox.com',
+          title: 'ired.team Notes',
+          description: 'Red Team Guide',
+          link: 'https://www.ired.team/offensive-security',
         },
       ],
     },
+    {
+      category: 'Active Directory',
+      items: [
+        {
+          title: 'NetExec',
+          description: 'NetExec Cheatsheet',
+          link: 'https://www.netexec.wiki/',
+        },
+        {
+          title: 'ired.team Notes',
+          description: 'Kerberos Cheatsheet',
+          link: 'https://www.ired.team/offensive-security-experiments/active-directory-kerberos-abuse',
+        },
+        {
+          title: 'InternalAllTheThings',
+          description: 'Internal Cheatsheet',
+          link: 'https://swisskyrepo.github.io/InternalAllTheThings/cheatsheets/mimikatz-cheatsheet/',
+        },
+        {
+          title: 'PopLabSec',
+          description: 'PT Guide for AD & Linux',
+          link: 'https://www.poplabsec.com/sitemap/',
+        },
+        {
+          title: 'AD Mindmap',
+          description: 'Orange Cyberdefense Active Directory Mindmap',
+          link: 'https://orange-cyberdefense.github.io/ocd-mindmaps/img/mindmap_ad_dark_classic_2025.03.excalidraw.svg',
+        },
+      ],
+    },
+    {
+      category: 'Linux',
+      items: [
+        {
+          title: 'Linux Methodology',
+          description: 'Linux Methodology Cheatsheet',
+          link: 'https://gabb4r.gitbook.io/oscp-notes',
+        },
+      ],
+    }
   ]
 
   return (
@@ -47,7 +87,7 @@ export default function ResourcesPage() {
             Resources
           </h1>
           <p className="text-lg leading-7 text-gray-500 dark:text-gray-400">
-            THIS PAGE IS A PLACEHOLDER FOR NOW...
+            Quicklinks to useful stuff.
           </p>
         </div>
         <div className="container py-12">
