@@ -1,7 +1,7 @@
 ---
 title: HTB - Fluffy (easy)
 date: '2025-05-19'
-tags: ['machine', 'windows', 'Active Directory', 'GenericAll', 'Shadow-Credentials', 'ESC16']
+tags: ['machine', 'windows', 'Active Directory', 'GenericAll', 'Shadow-Credentials', 'time-skew', 'ESC16']
 draft: false
 summary:  Enumerating SMB shares from given credentials reveals a hint about CVE-2025-24071 which leaks an NTLM hash then using that credential to map out ACE misconfigurations in Bloodhound which shows that the user has 'GenericAll' permission on 'Service Accounts' group. Using Shadow Credentials technique to gather NT hashes for Service Accounts then discovering that the CA issued a ceritificate vulnerable to ESC16. Thus, gaining Domain Admin.   
 ---
@@ -230,7 +230,25 @@ We can add `p.agila` into the Service Accounts grup using `bloodyAD`. [Source](h
 
 ![Description](/static/images/htb/windows/fluffy/13.jpg)
 
-Now, after being added to the group, we can perform Shadow Credentials on the 3 service accounts
+Now, after being added to the group, we can perform Shadow Credentials on the 3 service accounts but we will encounter an usual error
+
+![Description](/static/images/htb/windows/fluffy/24.jpg)
+
+It is a clock skew error. To fix this we will need to sync our attacking machine the same as the target machine. It is relatively simple.
+
+```
+sudo timedatectl set-ntp false
+sudo ntpdate <target_IP>
+```
+
+when we are done with our business and want to set it back to normal:
+
+```
+sudo timedatectl set-ntp true
+```
+
+Then it should be good
+
 
 `ca_svc`:
 ![Description](/static/images/htb/windows/fluffy/14.jpg)
