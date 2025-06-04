@@ -21,7 +21,7 @@ export default function ResourcesPage() {
           link: 'https://book.jorianwoltjer.com/',
         },
         {
-          title: "The Hacker Recipes",
+          title: 'The Hacker Recipes',
           description: 'More security testing guide',
           link: 'https://www.thehacker.recipes/',
         },
@@ -76,7 +76,7 @@ export default function ResourcesPage() {
           link: 'https://gabb4r.gitbook.io/oscp-notes',
         },
       ],
-    }
+    },
   ]
 
   return (

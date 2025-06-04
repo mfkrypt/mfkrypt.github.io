@@ -6,7 +6,7 @@ draft: false
 summary: Gaining RCE on an SQLpad web app, escaping docker jail and getting user access. Discovered internal host that led to Chrome Debugger Pentesting. Acquiring credentials on a Froxlor Server Management Panel. Gaining root access afterwards by changing PHP-FPM commands to a bash SUID permission change.
 ---
 
-<TOCInline toc={props.toc} asDisclosure/>
+<TOCInline toc={props.toc} asDisclosure />
 
 ## Scanning
 
@@ -16,7 +16,7 @@ Let's do a normal scan with `-sV` for service version and `-sC` for default scri
 
 3 ports are open which are `FTP`, `HTTP`, and `SSH`. The ftp port doesn't allow Anonymous logins, we will need to take note of that
 
-***
+---
 
 ## Fuzzing
 
@@ -24,7 +24,7 @@ I used `gobuster` to scan for directories
 
 ```
 ❯ gobuster dir -u http://sightless.htb -w /usr/share/wordlists/seclists/Discovery/Web-Content/common.txt
-                     
+
 ===============================================================
 Gobuster v3.6
 by OJ Reeves (@TheColonial) &#x26; Christian Mehlmauer (@firefart)
@@ -59,7 +59,7 @@ SQLpad is a web app for writing and running SQL queries and visualizing the resu
 
 ![Description](/static/images/htb/linux/sightless/4.png)
 
-***
+---
 
 ## Gaining Access
 
@@ -67,10 +67,14 @@ Now, I searched up for some CVEs online and found one
 
 [SQLpad RCE Exploit (CVE-2022-0944)](https://github.com/0xRoqeeb/sqlpad-rce-exploit-CVE-2022-0944)
 
-According to the Github repository and some articles, there is  a vulnerability that allows for Remote Code Execution (RCE) via the `/api/test-connection` endpoint. Apart from the exploit. Inputting the command below in the Database form field will also result in a RCE
+According to the Github repository and some articles, there is a vulnerability that allows for Remote Code Execution (RCE) via the `/api/test-connection` endpoint. Apart from the exploit. Inputting the command below in the Database form field will also result in a RCE
 
 ```javascript
-{{ process.mainModule.require('child_process').exec('id>/tmp/pwn') }}
+{
+  {
+    process.mainModule.require('child_process').exec('id>/tmp/pwn')
+  }
+}
 ```
 
 Running the exploit will return a JSON response and our listener will get a shell
@@ -97,7 +101,7 @@ And there we go, can see there is a user michael. We can attempt to crack his ha
 
 User flag secured
 
-***
+---
 
 ## Privilege Escalation
 
@@ -106,7 +110,7 @@ We run Linpeas on the target machine
 ```
 michael@sightless:~$ ls
 linpeas.sh  user.txt
-michael@sightless:~$ ./linpeas.sh 
+michael@sightless:~$ ./linpeas.sh
 ```
 
 ![Description](/static/images/htb/linux/sightless/11.png)
@@ -143,7 +147,7 @@ It indicates that the port has a subdomain attached to it. We need to add this l
 127.0.0.1    admin.sightless.htb
 ```
 
-And then, we  need to port forward the subdomain
+And then, we need to port forward the subdomain
 
 ```
 ❯ ssh -L 8082:admin.sightless.htb:8080 michael@10.10.11.32
@@ -179,7 +183,7 @@ Choosing 'inspect' will let you see the 'bot' logging in and the credentials wil
 
 ![Description](/static/images/htb/linux/sightless/19.png)
 
-***
+---
 
 ## Rabbit Hole
 
@@ -219,7 +223,7 @@ I opened the database file using `keepassxc` and got scammed :D
 
 FYI, these credentials does not work. Its a rabbit hole. I was flabbergasted, disappointed, you name it.
 
-***
+---
 
 ## Intended Solution
 

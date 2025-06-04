@@ -6,7 +6,7 @@ draft: false
 summary: Anonymous SMB access is allowed which leads to a password leak and also to RID Bruteforcing that reveals available users. Enumerating those again reveals a Powershell script with credentials enabling user access. The current user has SeBackupPrivilege enabled which allows for dumping NTLM hashes including Domain Admin's.
 ---
 
-<TOCInline toc={props.toc} asDisclosure/>
+<TOCInline toc={props.toc} asDisclosure />
 
 ## Scanning
 
@@ -52,10 +52,10 @@ PORT     STATE SERVICE       VERSION
 Service Info: Host: CICADA-DC; OS: Windows; CPE: cpe:/o:microsoft:windows
 
 Host script results:
-| smb2-security-mode: 
-|   3:1:1: 
+| smb2-security-mode:
+|   3:1:1:
 |_    Message signing enabled and required
-| smb2-time: 
+| smb2-time:
 |   date: 2025-02-08T01:07:42
 |_  start_date: N/A
 |_clock-skew: 6h43m18s
@@ -68,10 +68,10 @@ From the scanning result, we can see it is a Windows AD environment with usual s
 
 There is also the SMB protocol present in ports 139 and 445.&#x20;
 
-* **Port 139**: SMB originally ran on top of NetBIOS using port 139. NetBIOS is an older transport layer that allows Windows computers to talk to each other on the same network.
-* **Port 445:** Later versions of SMB (after Windows 2000) began to use port 445 on top of a TCP stack. Using TCP allows SMB to work over the internet.
+- **Port 139**: SMB originally ran on top of NetBIOS using port 139. NetBIOS is an older transport layer that allows Windows computers to talk to each other on the same network.
+- **Port 445:** Later versions of SMB (after Windows 2000) began to use port 445 on top of a TCP stack. Using TCP allows SMB to work over the internet.
 
-***
+---
 
 ## Enumerating
 
@@ -102,13 +102,13 @@ Contents of the file:
 the message hints that the password belongs to some user but we don't know who that is. After looking around there is an option using `netexec` where we can bruteforce the list of users. The command can be found [here](https://www.netexec.wiki/smb-protocol/enumeration/enumerate-users-by-bruteforcing-rid).
 
 > [!TIP]
-> Note: The `user` argument needs to be 'guest' and the `password`  argument needs to be empty.
+> Note: The `user` argument needs to be 'guest' and the `password` argument needs to be empty.
 
 ```
-❯ nxc smb 10.10.11.35 -u guest -p '' --rid-brute 
+❯ nxc smb 10.10.11.35 -u guest -p '' --rid-brute
 
 SMB         10.10.11.35     445    CICADA-DC        [*] Windows Server 2022 Build 20348 x64 (name:CICADA-DC) (domain:cicada.htb) (signing:True) (SMBv1:False)
-SMB         10.10.11.35     445    CICADA-DC        [+] cicada.htb\guest: 
+SMB         10.10.11.35     445    CICADA-DC        [+] cicada.htb\guest:
 SMB         10.10.11.35     445    CICADA-DC        498: CICADA\Enterprise Read-only Domain Controllers (SidTypeGroup)
 SMB         10.10.11.35     445    CICADA-DC        500: CICADA\Administrator (SidTypeUser)
 SMB         10.10.11.35     445    CICADA-DC        501: CICADA\Guest (SidTypeUser)
@@ -198,7 +198,7 @@ Now, we enumerate Emily's shares permissions
 
 Emily has Read and Write access to the `C$` share which is unusual because it usually requires administrator-level privileges because it is an administrative share for the C drive. This also means Emily might have elevated access.
 
-***
+---
 
 ## Gaining Access
 
@@ -214,7 +214,7 @@ C$\Users\emily.oscars.CICADA\Desktop\
 
 User flag secured!
 
-***
+---
 
 ## Privilege Escalation
 
@@ -315,4 +315,3 @@ Now locate the flag in `/Desktop` and Download it
 ![Description](/static/images/htb/windows/cicada/21.png)
 
 Root flag secured!
-
