@@ -65,6 +65,11 @@ export default function ResourcesPage() {
           description: 'Orange Cyberdefense Active Directory Mindmap',
           link: 'https://orange-cyberdefense.github.io/ocd-mindmaps/img/mindmap_ad_dark_classic_2025.03.excalidraw.svg',
         },
+        {
+          title: 'Powerview Cheatsheet',
+          description: 'AD Enumeration: Powerview',
+          link: 'https://www.hackingarticles.in/active-directory-enumeration-powerview/',
+        },
       ],
     },
     {
