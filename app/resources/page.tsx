@@ -66,9 +66,14 @@ export default function ResourcesPage() {
           link: 'https://orange-cyberdefense.github.io/ocd-mindmaps/img/mindmap_ad_dark_classic_2025.03.excalidraw.svg',
         },
         {
-          title: 'Powerview Cheatsheet',
-          description: 'AD Enumeration: Powerview',
+          title: 'Powerview',
+          description: 'Powerview Cheatsheet',
           link: 'https://www.hackingarticles.in/active-directory-enumeration-powerview/',
+        },
+        {
+          title: 'BloodyAD',
+          description: 'BloodyAD Cheatsheet',
+          link: 'https://adminions.ca/books/active-directory-enumeration-and-exploitation/page/bloodyad',
         },
       ],
     },
