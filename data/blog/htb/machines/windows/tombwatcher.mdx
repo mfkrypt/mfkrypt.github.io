@@ -255,6 +255,8 @@ We can easily log in and get the user flag
 
 ![Description](/static/images/htb/windows/tombwatcher/16.jpg)
 
+## Privilege Escalation
+
 I looked at Bloodhound and saw an empty OU, `ADCS` with `GenericAll`, this was a bit weird and I got stuck here.
 
 ![Description](/static/images/htb/windows/tombwatcher/17.jpg)
@@ -264,6 +266,8 @@ So, I looked up the name of the machine which is "tombstone" and I found somethi
 we can enumerate deleted objects and reanimate them like a zombie xD.
 
 I modified the command to enumerate like so:
+
+## Enumerating Deleted Objects
 
 ```
 *Evil-WinRM* PS> Get-ADObject -Filter 'isDeleted -eq $true -and objectClass -eq "user"' -IncludeDeletedObjects -Properties *
