@@ -1,7 +1,7 @@
 ---
 title: HTB - Tombwatcher (Medium)
 date: '2025-06-12'
-tags: ['machine', 'windows', 'Active Directory', 'tombstone', 'ReadGMSAPassword', 'writeowner', 'Kerberoast', 'ESC15']
+tags: ['machine', 'windows', 'Active Directory', 'tombstone', 'ReadGMSAPassword', 'WriteSPN', 'WriteOwner', 'Kerberoast', 'AddSelf', 'ESC15']
 draft: false
 summary:  Early situational awareness with Bloodhound reveals common ACEs throughout multiple users and navigating through them gets the user flag. After enumerating the target machine, there is an empty OU but also a tombstoned object which is a privileged user in the OU that has access to enumerate vulnerable certificates and discovering it was ESC15. Thus, gaining DA
 ---
