@@ -3,7 +3,7 @@ title: HTB - Return (Easy)
 date: '2025-07-12'
 tags: ['machine', 'windows', 'Active Directory', 'Pass-Back Attack', 'Server Operators']
 draft: false
-summary: Early recon reveals a web-based LDAP Server that allows for exfiltrating sensitive credentials and gaining user access, escalating privileges by identifying the user is a member of the Server Operators group  
+summary: Early recon reveals a web-based LDAP Server that allows for exfiltrating sensitive credentials and gaining user access, escalating privileges by identifying the user is a member of the Server Operators group
 ---
 
 <TOCInline toc={props.toc} asDisclosure />
@@ -56,7 +56,7 @@ PORT     STATE SERVICE       VERSION
 80/tcp   open  http          Microsoft IIS httpd 10.0
 |_http-title: HTB Printer Admin Panel
 |_http-server-header: Microsoft-IIS/10.0
-| http-methods: 
+| http-methods:
 |   Supported Methods: OPTIONS TRACE GET HEAD POST
 |_  Potentially risky methods: TRACE
 88/tcp   open  kerberos-sec  Microsoft Windows Kerberos (server time: 2025-07-12 12:26:14Z)
@@ -72,10 +72,10 @@ PORT     STATE SERVICE       VERSION
 Service Info: Host: PRINTER; OS: Windows; CPE: cpe:/o:microsoft:windows
 
 Host script results:
-| smb2-security-mode: 
-|   3:1:1: 
+| smb2-security-mode:
+|   3:1:1:
 |_    Message signing enabled and required
-| smb2-time: 
+| smb2-time:
 |   date: 2025-07-12T12:26:19
 |_  start_date: N/A
 |_clock-skew: 18m34s
@@ -102,7 +102,7 @@ I already tested for SMB Anonymous access but doesn't work so let's check out th
 
 ![Description](/static/images/htb/windows/return/1.jpg)
 
-We are met with what looks like a printer page. It also has a settings page some useful information. It 
+We are met with what looks like a printer page. It also has a settings page some useful information. It
 reveals a valid `username` and what looks like a password
 
 ![Description](/static/images/htb/windows/return/2.jpg)
@@ -111,12 +111,12 @@ Inspecting it using dev tools does not reveal the password, its just prefilled w
 
 ![Description](/static/images/htb/windows/return/3.jpg)
 
-Even if we try to update the settings it doesn't really update it, checking Burp, we can see an 
+Even if we try to update the settings it doesn't really update it, checking Burp, we can see an
 unusual parameter
 
 ![Description](/static/images/htb/windows/return/4.jpg)
 
-This got me thinking, what if we replace the address with our own address and open up a listener at 
+This got me thinking, what if we replace the address with our own address and open up a listener at
 the specific port which it is listening which is `389` which is also the LDAP port.
 
 ```shell
@@ -148,7 +148,6 @@ And we received something that looks like a password, let us verify it along wit
 ---
 
 ## Gaining Access
-
 
 annddd yes, we can definitely WinRM into `svc-printer` and can go ahead and grab the user flag
 
@@ -203,23 +202,3 @@ type C:\Users\Administrator\Desktop\root.txt
 ```
 
 ![Description](/static/images/htb/windows/return/12.jpg)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

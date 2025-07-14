@@ -54,8 +54,8 @@ const securityHeaders = [
   },
   {
     key: 'Content-Security-Policy',
-    value: 'frame-src youtube.com https://www.youtube.com;'
-  }
+    value: 'frame-src youtube.com https://www.youtube.com;',
+  },
 ]
 
 const output = process.env.EXPORT ? 'export' : undefined

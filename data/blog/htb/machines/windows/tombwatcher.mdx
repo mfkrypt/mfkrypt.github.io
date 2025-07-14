@@ -1,9 +1,21 @@
 ---
 title: HTB - Tombwatcher (Medium)
 date: '2025-06-12'
-tags: ['machine', 'windows', 'Active Directory', 'tombstone', 'ReadGMSAPassword', 'WriteSPN', 'WriteOwner', 'Kerberoast', 'AddSelf', 'ESC15']
+tags:
+  [
+    'machine',
+    'windows',
+    'Active Directory',
+    'tombstone',
+    'ReadGMSAPassword',
+    'WriteSPN',
+    'WriteOwner',
+    'Kerberoast',
+    'AddSelf',
+    'ESC15',
+  ]
 draft: false
-summary:  Early situational awareness with Bloodhound reveals common ACEs throughout multiple users and navigating through them gets the user flag. After enumerating the target machine, there is an empty OU but also a tombstoned object which is a privileged user in the OU that has access to enumerate vulnerable certificates and discovering it was ESC15. Thus, gaining DA
+summary: Early situational awareness with Bloodhound reveals common ACEs throughout multiple users and navigating through them gets the user flag. After enumerating the target machine, there is an empty OU but also a tombstoned object which is a privileged user in the OU that has access to enumerate vulnerable certificates and discovering it was ESC15. Thus, gaining DA
 ---
 
 <TOCInline toc={props.toc} asDisclosure />
@@ -59,7 +71,7 @@ PORT     STATE SERVICE       VERSION
 80/tcp   open  http          Microsoft IIS httpd 10.0
 |_http-title: IIS Windows Server
 |_http-server-header: Microsoft-IIS/10.0
-| http-methods: 
+| http-methods:
 |   Supported Methods: OPTIONS TRACE GET HEAD POST
 |_  Potentially risky methods: TRACE
 88/tcp   open  kerberos-sec  Microsoft Windows Kerberos (server time: 2025-06-12 06:08:53Z)
@@ -119,11 +131,11 @@ PORT     STATE SERVICE       VERSION
 Service Info: Host: DC01; OS: Windows; CPE: cpe:/o:microsoft:windows
 
 Host script results:
-| smb2-security-mode: 
-|   3:1:1: 
+| smb2-security-mode:
+|   3:1:1:
 |_    Message signing enabled and required
 |_clock-skew: mean: 11h54m44s, deviation: 0s, median: 11h54m44s
-| smb2-time: 
+| smb2-time:
 |   date: 2025-06-12T06:09:34
 |_  start_date: N/A
 
@@ -168,7 +180,7 @@ With credentials given, we can gain situational awareness by gathering Bloodhoun
 
 ![Description](/static/images/htb/windows/tombwatcher/3.jpg)
 
-Observe `henry` has `WriteSPN` ACE over `alfred`. The gives us the ability to write directly to the servicePrincipalNames 
+Observe `henry` has `WriteSPN` ACE over `alfred`. The gives us the ability to write directly to the servicePrincipalNames
 attribute on a user object. Writing to this property gives us the opportunity to perform a targeted kerberoasting attack against that user.
 
 I will be using Powerview for this.
@@ -199,7 +211,7 @@ Now, we check Bloodhound again to look for Outbound Object Controls in which we 
 
 ![Description](/static/images/htb/windows/tombwatcher/7.jpg)
 
-`alfred` has `AddSelf` ACE over the `Infrastructure` group. He can add himself to the group and gain 
+`alfred` has `AddSelf` ACE over the `Infrastructure` group. He can add himself to the group and gain
 the same privileges. Again, we can use Powerview for this
 
 ```
@@ -345,10 +357,3 @@ Now, we authenticate using the Administartor's cert/private key
 Now, just winrm and get da root flag
 
 ![Description](/static/images/htb/windows/tombwatcher/26.jpg)
-
-
-
-
-
-
-

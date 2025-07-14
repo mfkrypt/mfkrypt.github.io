@@ -3,7 +3,7 @@ title: HTB - Puppy (Medium)
 date: '2025-06-05'
 tags: ['machine', 'windows', 'Active Directory', 'GenericWrite', 'GenericAll', 'dpapi-credentials']
 draft: false
-summary:  Starting with Situational Awareness, navigate through common ACEs misconfigurations, cracking a Keepass database file then escalating privileges by extracting credentials from Windows DPAPI revealing another ACE misconfiguration route that grants Domain Admin
+summary: Starting with Situational Awareness, navigate through common ACEs misconfigurations, cracking a Keepass database file then escalating privileges by extracting credentials from Windows DPAPI revealing another ACE misconfiguration route that grants Domain Admin
 ---
 
 <TOCInline toc={props.toc} asDisclosure />
@@ -63,7 +63,7 @@ PORT     STATE SERVICE       VERSION
 53/tcp   open  domain        Simple DNS Plus
 88/tcp   open  kerberos-sec  Microsoft Windows Kerberos (server time: 2025-06-05 10:03:57Z)
 111/tcp  open  rpcbind       2-4 (RPC #100000)
-| rpcinfo: 
+| rpcinfo:
 |   program version    port/proto  service
 |   100000  2,3,4        111/tcp   rpcbind
 |   100000  2,3,4        111/tcp6  rpcbind
@@ -95,10 +95,10 @@ PORT     STATE SERVICE       VERSION
 Service Info: Host: DC; OS: Windows; CPE: cpe:/o:microsoft:windows
 
 Host script results:
-| smb2-security-mode: 
-|   3:1:1: 
+| smb2-security-mode:
+|   3:1:1:
 |_    Message signing enabled and required
-| smb2-time: 
+| smb2-time:
 |   date: 2025-06-05T10:05:52
 |_  start_date: N/A
 |_clock-skew: 6h38m38s
@@ -160,7 +160,7 @@ Now we-renumerate
 
 ![Description](/static/images/htb/windows/puppy/5.jpg)
 
-`levi.james` now has `READ` access to the `DEV` share. 
+`levi.james` now has `READ` access to the `DEV` share.
 
 ![Description](/static/images/htb/windows/puppy/6.jpg)
 
@@ -211,8 +211,7 @@ But, there was a problem. I couldn't `evil-winrm` into his account for some reas
 
 ![Description](/static/images/htb/windows/puppy/15.jpg)
 
-> [!TIP]
-> https://adminions.ca/books/active-directory-enumeration-and-exploitation/page/bloodyad#bkmrk-enable-a-disabled-ac
+> [!TIP] > https://adminions.ca/books/active-directory-enumeration-and-exploitation/page/bloodyad#bkmrk-enable-a-disabled-ac
 
 Now we enable it
 
@@ -247,12 +246,13 @@ of data
 
 ![Description](/static/images/htb/windows/puppy/20.jpg)
 
-According to this [Hacktricks page](https://book.hacktricks.wiki/en/windows-hardening/windows-local-privilege-escalation/dpapi-extracting-passwords.html), 
+According to this [Hacktricks page](https://book.hacktricks.wiki/en/windows-hardening/windows-local-privilege-escalation/dpapi-extracting-passwords.html),
 we should be looking for any available master keys in which there is only 1 present at the moment:
 
 > [!TIP]
 > Check for master keys here:
-> ``` 
+>
+> ```
 > Get-ChildItem C:\Users\USER\AppData\Roaming\Microsoft\Protect\
 > Get-ChildItem C:\Users\USER\AppData\Local\Microsoft\Protect
 > Get-ChildItem -Hidden C:\Users\USER\AppData\Roaming\Microsoft\Protect\
@@ -267,11 +267,12 @@ Next, we need to find encrypted blobs which are encrypted data files which somet
 
 > [!TIP]
 > Common users files protected are in:
+>
 > ```
 > C:\Users\username\AppData\Roaming\Microsoft\Protect\*
 > C:\Users\username\AppData\Roaming\Microsoft\Credentials\*
 > C:\Users\username\AppData\Roaming\Microsoft\Vault\*
-> 
+>
 > Check also changing \Roaming\ to \Local\ in the above paths.
 > ```
 
@@ -288,7 +289,7 @@ Unfortunately, that didn't work :(
 ![Description](/static/images/htb/windows/puppy/26.jpg)
 
 But that will be informational for later, in the `C:` drive there is a `Backups` directory. In it, a file called `site-backup-2024-12-30.zip`. After downloading it,
-we can see the source code of some webpage 
+we can see the source code of some webpage
 
 ![Description](/static/images/htb/windows/puppy/21.jpg)
 
@@ -321,6 +322,7 @@ is also present here.
 PS C:\Users\steph.cooper\Documents> ./mimikatz.exe "dpapi::masterkey /in:C:\Users\steph.cooper\AppData\Roaming\Microsoft\Protect\S-1-5-21-1487982659-1829050783-2281216199-1107/556a2412-1275-4ccf-b721-e6a0b4f90407 /sid:S-1-5-21-1487982659-1829050783-2281216199-1107 /passw
 ord:ChefSteph2025! /protected" exit
 ```
+
 ![Description](/static/images/htb/windows/puppy/28.jpg)
 
 Nice, we have decrypted the masterkey. Now, we can decrypt the encrypted blobs using the master key! I decrypted the first blob.
@@ -371,7 +373,6 @@ then run these commands
 
 ![Description](/static/images/htb/windows/puppy/33.jpg)
 
-
 Then decrypt the blob
 
 ```
@@ -379,24 +380,3 @@ Then decrypt the blob
 ```
 
 ![Description](/static/images/htb/windows/puppy/34.jpg)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

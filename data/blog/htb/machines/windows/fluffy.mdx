@@ -1,9 +1,18 @@
 ---
 title: HTB - Fluffy (easy)
 date: '2025-05-19'
-tags: ['machine', 'windows', 'Active Directory', 'GenericAll', 'Shadow-Credentials', 'time-skew', 'ESC16']
+tags:
+  [
+    'machine',
+    'windows',
+    'Active Directory',
+    'GenericAll',
+    'Shadow-Credentials',
+    'time-skew',
+    'ESC16',
+  ]
 draft: false
-summary:  Enumerating SMB shares from given credentials reveals a hint about CVE-2025-24071 which leaks an NTLM hash then using that credential to map out ACE misconfigurations in Bloodhound which shows that the user has 'GenericAll' permission on 'Service Accounts' group. Using Shadow Credentials technique to gather NT hashes for Service Accounts then discovering that the CA issued a ceritificate vulnerable to ESC16. Thus, gaining Domain Admin.   
+summary: Enumerating SMB shares from given credentials reveals a hint about CVE-2025-24071 which leaks an NTLM hash then using that credential to map out ACE misconfigurations in Bloodhound which shows that the user has 'GenericAll' permission on 'Service Accounts' group. Using Shadow Credentials technique to gather NT hashes for Service Accounts then discovering that the CA issued a ceritificate vulnerable to ESC16. Thus, gaining Domain Admin.
 ---
 
 <TOCInline toc={props.toc} asDisclosure />
@@ -110,11 +119,11 @@ PORT     STATE SERVICE       VERSION
 Service Info: Host: DC01; OS: Windows; CPE: cpe:/o:microsoft:windows
 
 Host script results:
-| smb2-security-mode: 
-|   3:1:1: 
+| smb2-security-mode:
+|   3:1:1:
 |_    Message signing enabled and required
 |_clock-skew: mean: 6h38m30s, deviation: 0s, median: 6h38m30s
-| smb2-time: 
+| smb2-time:
 |   date: 2025-06-04T19:04:08
 |_  start_date: N/A
 
@@ -144,7 +153,7 @@ Scanning results reveal SMB is enabled. So, let's start enumerating from there w
 
 ![Description](/static/images/htb/windows/fluffy/1.jpg)
 
-Apart from `Administrator` and `Guest`, we can see a few users and Service Accounts. Save them in a file called `users.txt`. Other than that, enumerating shares 
+Apart from `Administrator` and `Guest`, we can see a few users and Service Accounts. Save them in a file called `users.txt`. Other than that, enumerating shares
 reveal that we have `READ` and `WRITE` permissions over the `IT` share.
 
 Connecting to the share reveals a pdf file
@@ -155,7 +164,7 @@ The pdf file hints at two critical CVEs that are present in the system. After do
 
 ![Description](/static/images/htb/windows/fluffy/3.jpg)
 
-To put it roughly, the vulnerability lies in Windows Explorer that leaks NTLM hashes when a malicious `.library-ms` file is extracted from a ZIP archive. 
+To put it roughly, the vulnerability lies in Windows Explorer that leaks NTLM hashes when a malicious `.library-ms` file is extracted from a ZIP archive.
 Windows Explorer automatically initiates an SMB authentication request to a remote server specified in the file, leaking the user's NTLM hash without any user interaction.
 
 The custom metasploit module generates that `.library-ms` in a zip compressed archive file and all we have to do is upload it in the `IT` share and a simulated 'user' will extract it thus leaking the NTLM hash.
@@ -249,7 +258,6 @@ sudo timedatectl set-ntp true
 
 Then it should be good
 
-
 `ca_svc`:
 ![Description](/static/images/htb/windows/fluffy/14.jpg)
 
@@ -314,7 +322,3 @@ Cool, now that we have the `Administrator`'s NT hash, we can `winrm` into his De
 ![Description](/static/images/htb/windows/fluffy/22.jpg)
 
 ![Description](/static/images/htb/windows/fluffy/23.jpg)
-
-
-
-

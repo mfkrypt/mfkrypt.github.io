@@ -68,7 +68,7 @@ Service Info: Host: DC; OS: Windows; CPE: cpe:/o:microsoft:windows
 
 Host script results:
 |_clock-skew: -1s
-| smb2-time: 
+| smb2-time:
 |   date: 2025-07-12T23:05:02
 |_  start_date: N/A
 
@@ -120,7 +120,7 @@ We can utlize a .NET debugger like dnSpy to debug and disassemble the applicatio
 ![Description](/static/images/htb/windows/support/5.jpg)
 
 We can analyse a few functions after decompiling but the `LdapQuery` class seems to authenticate a user named `ldap` against the LDAP server,
-furthermore, we can notice that is retrieving a string called `password` from the `Protected` class using the `getPassword()` function 
+furthermore, we can notice that is retrieving a string called `password` from the `Protected` class using the `getPassword()` function
 
 ![Description](/static/images/htb/windows/support/6.jpg)
 
@@ -140,7 +140,7 @@ Key that is used for XOR:
 private static byte[] key = Encoding.ASCII.GetBytes("armando");
 ```
 
-Now the function `getPassword()` first decodes the Base64 string into a byte array, then does a for loop that each byte is 
+Now the function `getPassword()` first decodes the Base64 string into a byte array, then does a for loop that each byte is
 XORed with a byte from the key with a constant of `223`
 
 ```
@@ -181,6 +181,7 @@ print(f'Decrypted password: {password}')
 
 Decrypted password: nvEfEK16^1aM4$e7AclUf8x$tRWxPWO1%lmz
 ```
+
 Let us verify the credentials
 
 ![Description](/static/images/htb/windows/support/8.jpg)
@@ -215,7 +216,7 @@ Going through the user objects carefully we will notice what looks like a passwo
 
 ![Description](/static/images/htb/windows/support/11.jpg)
 
-Verify them 
+Verify them
 
 ![Description](/static/images/htb/windows/support/12.jpg)
 
@@ -324,20 +325,10 @@ DC$:1000:aad3b435b51404eeaad3b435b51404ee:e2e3a4338eadd9bf0f6f640e68c82340:::
 ATTACKERSYSTEM$:6101:aad3b435b51404eeaad3b435b51404ee:2b576acbe6bcfda7294d6bd18041b8fe:::
 ```
 
-
-
 # The Manual Method
 
 The attached below is an amazing explanation and step by step video on how to exploit this. I will use it as my reference
 
 <YouTubeEmbed videoId="RUbADHcBLKg" title="BloodHound 2.1's New Computer Takeover Attack" />
 
-Fir 
-
-
-
-
-
-
-
-
+Fir
