@@ -1,9 +1,9 @@
 ---
 title: HTB - Support (Easy)
-date: '2025-07-13'
-tags: ['machine', 'windows', 'Active Directory']
+date: '2025-07-14'
+tags: ['machine', 'windows', 'Active Directory', 'Reverse-Engineering', 'genericAll', 'RBCD', 'S4U2SELF', 'S4U2PROXY']
 draft: false
-summary: Placeholder
+summary: Guest logon enumeration was used to discover an LDAP querying application that was reverse-engineered to find encrypted credentials that allowed for more enumeration that leads to LDAP eunumeration to discover more credentials for user access. Bloodhound shows an attack vector having access with an ACE of GenericAll over a computer account that leads to Resource-Based Constrained Delegation that grants SYSTEM access 
 ---
 
 <TOCInline toc={props.toc} asDisclosure />
