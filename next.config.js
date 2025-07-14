@@ -52,6 +52,10 @@ const securityHeaders = [
     key: 'Permissions-Policy',
     value: 'camera=(), microphone=(), geolocation=()',
   },
+  {
+    key: 'Content-Security-Policy',
+    value: 'frame-src youtube.com https://www.youtube.com;'
+  }
 ]
 
 const output = process.env.EXPORT ? 'export' : undefined

