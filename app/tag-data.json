@@ -2,6 +2,11 @@
   "machine": 9,
   "windows": 7,
   "active-directory": 7,
+  "reverse-engineering": 1,
+  "genericall": 3,
+  "rbcd": 1,
+  "s4u2self": 1,
+  "s4u2proxy": 1,
   "mssql": 1,
   "writeowner": 2,
   "esc4": 1,
@@ -16,7 +21,6 @@
   "addself": 1,
   "esc15": 1,
   "genericwrite": 1,
-  "genericall": 2,
   "dpapi-credentials": 1,
   "pwn": 1,
   "malloc": 1,
@@ -32,8 +36,5 @@
   "docker-jail": 1,
   "port-forwarding": 1,
   "chrome-pentest": 1,
-  "froxlor": 1,
-  "next-js": 1,
-  "tailwind": 1,
-  "guide": 1
+  "froxlor": 1
 }

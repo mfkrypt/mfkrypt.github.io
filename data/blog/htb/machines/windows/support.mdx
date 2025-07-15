@@ -115,6 +115,8 @@ are probably required to run the program and the executable itself. We also find
 
 ![Description](/static/images/htb/windows/support/4.jpg)
 
+---
+
 # Reversing
 
 We can utlize a .NET debugger like dnSpy to debug and disassemble the application
@@ -190,6 +192,8 @@ Let us verify the credentials
 
 Yep, we got it
 
+---
+
 # Enumeration Pt.2
 
 Enumerate users
@@ -234,12 +238,16 @@ Valid, lets goo. Lets us try querying for Bloodhound data
 
 ![Description](/static/images/htb/windows/support/14.jpg)
 
+---
+
 # Gaining Access
 
 Finally works bruh, we can see user `support` is a member of the Remote Management Users group. We can easily retrieve
 the user flag
 
 ![Description](/static/images/htb/windows/support/15.jpg)
+
+---
 
 # Privilege Escalation
 
@@ -535,6 +543,8 @@ ford.victoria:1120:aad3b435b51404eeaad3b435b51404ee:0fab66daddc6ba42a3b096312335
 DC$:1000:aad3b435b51404eeaad3b435b51404ee:e2e3a4338eadd9bf0f6f640e68c82340:::
 ATTACKERSYSTEM$:6101:aad3b435b51404eeaad3b435b51404ee:2b576acbe6bcfda7294d6bd18041b8fe:::
 ```
+
+---
 
 # Sources
 
