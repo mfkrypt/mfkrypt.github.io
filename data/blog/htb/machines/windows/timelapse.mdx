@@ -6,6 +6,8 @@ draft: false
 summary: Guest logon enumeration was allowed that lead to a zip and pfx file that was crackable by John, giving user access and then discovering Powershell history commands that lead to mapping DACLs hinting at LAPS being enabled. This also lead to reading the DA password in plaintext
 ---
 
+![Description](/static/images/htb/windows/timelapse/Timelapse.png)
+
 <TOCInline toc={props.toc} asDisclosure />
 
 ## Scanning
@@ -220,6 +222,12 @@ mr `TRX` over here
 And the root flag was there!
 
 ![Description](/static/images/htb/windows/timelapse/17.jpg)
+
+---
+
+## Sources
+
+ - https://cicada-8.medium.com/adcs-so-u-got-certificate-now-ive-got-nine-ways-to-abuse-it-861081cff082
 
 
 

