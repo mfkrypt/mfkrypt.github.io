@@ -1,0 +1,333 @@
+---
+title: HTB - Authority (Medium)
+date: '2025-07-29'
+tags: ['machine', 'windows', 'Active Directory']
+draft: false
+summary: 
+---
+
+![Description](/static/images/htb/windows/authority/authority.png)
+
+<TOCInline toc={props.toc} asDisclosure />
+
+## Scanning
+
+```
+❯ nmap -sV -sC -v -Pn 10.129.229.56
+
+Host discovery disabled (-Pn). All addresses will be marked 'up' and scan times may be slower.
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-07-29 00:38 +08
+NSE: Loaded 156 scripts for scanning.
+NSE: Script Pre-scanning.
+Initiating NSE at 00:38
+Completed NSE at 00:38, 0.00s elapsed
+Initiating NSE at 00:38
+Completed NSE at 00:38, 0.00s elapsed
+Initiating NSE at 00:38
+Completed NSE at 00:38, 0.00s elapsed
+Initiating Parallel DNS resolution of 1 host. at 00:38
+Completed Parallel DNS resolution of 1 host. at 00:38, 0.01s elapsed
+Initiating Connect Scan at 00:38
+Scanning 10.129.229.56 [1000 ports]
+Discovered open port 135/tcp on 10.129.229.56
+Discovered open port 80/tcp on 10.129.229.56
+Discovered open port 445/tcp on 10.129.229.56
+Discovered open port 53/tcp on 10.129.229.56
+Discovered open port 139/tcp on 10.129.229.56
+Discovered open port 3268/tcp on 10.129.229.56
+Discovered open port 3269/tcp on 10.129.229.56
+Discovered open port 464/tcp on 10.129.229.56
+Discovered open port 8443/tcp on 10.129.229.56
+Discovered open port 389/tcp on 10.129.229.56
+Discovered open port 636/tcp on 10.129.229.56
+Discovered open port 593/tcp on 10.129.229.56
+Discovered open port 88/tcp on 10.129.229.56
+Completed Connect Scan at 00:38, 1.34s elapsed (1000 total ports)
+Initiating Service scan at 00:38
+Scanning 13 services on 10.129.229.56
+Completed Service scan at 00:39, 76.75s elapsed (13 services on 1 host)
+NSE: Script scanning 10.129.229.56.
+Initiating NSE at 00:39
+Completed NSE at 00:40, 8.69s elapsed
+Initiating NSE at 00:40
+Completed NSE at 00:40, 9.28s elapsed
+Initiating NSE at 00:40
+Completed NSE at 00:40, 0.00s elapsed
+Nmap scan report for 10.129.229.56
+Host is up (0.012s latency).
+Not shown: 987 closed tcp ports (conn-refused)
+PORT     STATE SERVICE       VERSION
+53/tcp   open  domain        Simple DNS Plus
+80/tcp   open  http          Microsoft IIS httpd 10.0
+|_http-title: IIS Windows Server
+|_http-server-header: Microsoft-IIS/10.0
+| http-methods: 
+|   Supported Methods: OPTIONS TRACE GET HEAD POST
+|_  Potentially risky methods: TRACE
+88/tcp   open  kerberos-sec  Microsoft Windows Kerberos (server time: 2025-07-28 20:38:44Z)
+135/tcp  open  msrpc         Microsoft Windows RPC
+139/tcp  open  netbios-ssn   Microsoft Windows netbios-ssn
+389/tcp  open  ldap          Microsoft Windows Active Directory LDAP (Domain: authority.htb, Site: Default-First-Site-Name)
+|_ssl-date: 2025-07-28T20:40:06+00:00; +3h59m59s from scanner time.
+| ssl-cert: Subject: 
+| Subject Alternative Name: othername: UPN:AUTHORITY$@htb.corp, DNS:authority.htb.corp, DNS:htb.corp, DNS:HTB
+| Issuer: commonName=htb-AUTHORITY-CA
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2022-08-09T23:03:21
+| Not valid after:  2024-08-09T23:13:21
+| MD5:   d494:7710:6f6b:8100:e4e1:9cf2:aa40:dae1
+|_SHA-1: dded:b994:b80c:83a9:db0b:e7d3:5853:ff8e:54c6:2d0b
+445/tcp  open  microsoft-ds?
+464/tcp  open  kpasswd5?
+593/tcp  open  ncacn_http    Microsoft Windows RPC over HTTP 1.0
+636/tcp  open  ssl/ldap      Microsoft Windows Active Directory LDAP (Domain: authority.htb, Site: Default-First-Site-Name)
+| ssl-cert: Subject: 
+| Subject Alternative Name: othername: UPN:AUTHORITY$@htb.corp, DNS:authority.htb.corp, DNS:htb.corp, DNS:HTB
+| Issuer: commonName=htb-AUTHORITY-CA
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2022-08-09T23:03:21
+| Not valid after:  2024-08-09T23:13:21
+| MD5:   d494:7710:6f6b:8100:e4e1:9cf2:aa40:dae1
+|_SHA-1: dded:b994:b80c:83a9:db0b:e7d3:5853:ff8e:54c6:2d0b
+|_ssl-date: 2025-07-28T20:40:06+00:00; +3h59m59s from scanner time.
+3268/tcp open  ldap          Microsoft Windows Active Directory LDAP (Domain: authority.htb, Site: Default-First-Site-Name)
+| ssl-cert: Subject: 
+| Subject Alternative Name: othername: UPN:AUTHORITY$@htb.corp, DNS:authority.htb.corp, DNS:htb.corp, DNS:HTB
+| Issuer: commonName=htb-AUTHORITY-CA
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2022-08-09T23:03:21
+| Not valid after:  2024-08-09T23:13:21
+| MD5:   d494:7710:6f6b:8100:e4e1:9cf2:aa40:dae1
+|_SHA-1: dded:b994:b80c:83a9:db0b:e7d3:5853:ff8e:54c6:2d0b
+|_ssl-date: 2025-07-28T20:40:06+00:00; +3h59m59s from scanner time.
+3269/tcp open  ssl/ldap      Microsoft Windows Active Directory LDAP (Domain: authority.htb, Site: Default-First-Site-Name)
+|_ssl-date: 2025-07-28T20:40:06+00:00; +3h59m59s from scanner time.
+| ssl-cert: Subject: 
+| Subject Alternative Name: othername: UPN:AUTHORITY$@htb.corp, DNS:authority.htb.corp, DNS:htb.corp, DNS:HTB
+| Issuer: commonName=htb-AUTHORITY-CA
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2022-08-09T23:03:21
+| Not valid after:  2024-08-09T23:13:21
+| MD5:   d494:7710:6f6b:8100:e4e1:9cf2:aa40:dae1
+|_SHA-1: dded:b994:b80c:83a9:db0b:e7d3:5853:ff8e:54c6:2d0b
+8443/tcp open  ssl/https-alt
+| ssl-cert: Subject: commonName=172.16.2.118
+| Issuer: commonName=172.16.2.118
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2025-07-26T20:35:32
+| Not valid after:  2027-07-29T08:13:56
+| MD5:   62b5:b706:ab36:2404:45e1:a25f:5728:005e
+|_SHA-1: 0ad9:63a5:f619:5cf7:9f85:2f7e:07be:f175:5b9b:fbaf
+|_http-title: Site doesn't have a title (text/html;charset=ISO-8859-1).
+| http-methods: 
+|_  Supported Methods: GET HEAD POST OPTIONS
+|_http-favicon: Unknown favicon MD5: F588322AAF157D82BB030AF1EFFD8CF9
+| fingerprint-strings: 
+|   FourOhFourRequest, GetRequest: 
+|     HTTP/1.1 200 
+|     Content-Type: text/html;charset=ISO-8859-1
+|     Content-Length: 82
+|     Date: Mon, 28 Jul 2025 20:38:50 GMT
+|     Connection: close
+|     <html><head><meta http-equiv="refresh" content="0;URL='/pwm'"/></head></html>
+|   HTTPOptions: 
+|     HTTP/1.1 200 
+|     Allow: GET, HEAD, POST, OPTIONS
+|     Content-Length: 0
+|     Date: Mon, 28 Jul 2025 20:38:50 GMT
+|     Connection: close
+|   RTSPRequest: 
+|     HTTP/1.1 400 
+|     Content-Type: text/html;charset=utf-8
+|     Content-Language: en
+|     Content-Length: 1936
+|     Date: Mon, 28 Jul 2025 20:38:56 GMT
+|     Connection: close
+|     <!doctype html><html lang="en"><head><title>HTTP Status 400 
+|     Request</title><style type="text/css">body {font-family:Tahoma,Arial,sans-serif;} h1, h2, h3, b {color:white;background-color:#525D76;} h1 {font-size:22px;} h2 {font-size:16px;} h3 {font-size:14px;} p {font-size:12px;} a {color:black;} .line {height:1px;background-color:#525D76;border:none;}</style></head><body><h1>HTTP Status 400 
+|_    Request</h1><hr class="line" /><p><b>Type</b> Exception Report</p><p><b>Message</b> Invalid character found in the HTTP protocol [RTSP&#47;1.00x0d0x0a0x0d0x0a...]</p><p><b>Description</b> The server cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, invalid
+|_ssl-date: TLS randomness does not represent time
+1 service unrecognized despite returning data. If you know the service/version, please submit the following fingerprint at https://nmap.org/cgi-bin/submit.cgi?new-service :
+SF-Port8443-TCP:V=7.94SVN%T=SSL%I=7%D=7/29%Time=6887A799%P=x86_64-pc-linux
+SF:-gnu%r(GetRequest,DB,"HTTP/1\.1\x20200\x20\r\nContent-Type:\x20text/htm
+SF:l;charset=ISO-8859-1\r\nContent-Length:\x2082\r\nDate:\x20Mon,\x2028\x2
+SF:0Jul\x202025\x2020:38:50\x20GMT\r\nConnection:\x20close\r\n\r\n\n\n\n\n
+SF:\n<html><head><meta\x20http-equiv=\"refresh\"\x20content=\"0;URL='/pwm'
+SF:\"/></head></html>")%r(HTTPOptions,7D,"HTTP/1\.1\x20200\x20\r\nAllow:\x
+SF:20GET,\x20HEAD,\x20POST,\x20OPTIONS\r\nContent-Length:\x200\r\nDate:\x2
+SF:0Mon,\x2028\x20Jul\x202025\x2020:38:50\x20GMT\r\nConnection:\x20close\r
+SF:\n\r\n")%r(FourOhFourRequest,DB,"HTTP/1\.1\x20200\x20\r\nContent-Type:\
+SF:x20text/html;charset=ISO-8859-1\r\nContent-Length:\x2082\r\nDate:\x20Mo
+SF:n,\x2028\x20Jul\x202025\x2020:38:50\x20GMT\r\nConnection:\x20close\r\n\
+SF:r\n\n\n\n\n\n<html><head><meta\x20http-equiv=\"refresh\"\x20content=\"0
+SF:;URL='/pwm'\"/></head></html>")%r(RTSPRequest,82C,"HTTP/1\.1\x20400\x20
+SF:\r\nContent-Type:\x20text/html;charset=utf-8\r\nContent-Language:\x20en
+SF:\r\nContent-Length:\x201936\r\nDate:\x20Mon,\x2028\x20Jul\x202025\x2020
+SF::38:56\x20GMT\r\nConnection:\x20close\r\n\r\n<!doctype\x20html><html\x2
+SF:0lang=\"en\"><head><title>HTTP\x20Status\x20400\x20\xe2\x80\x93\x20Bad\
+SF:x20Request</title><style\x20type=\"text/css\">body\x20{font-family:Taho
+SF:ma,Arial,sans-serif;}\x20h1,\x20h2,\x20h3,\x20b\x20{color:white;backgro
+SF:und-color:#525D76;}\x20h1\x20{font-size:22px;}\x20h2\x20{font-size:16px
+SF:;}\x20h3\x20{font-size:14px;}\x20p\x20{font-size:12px;}\x20a\x20{color:
+SF:black;}\x20\.line\x20{height:1px;background-color:#525D76;border:none;}
+SF:</style></head><body><h1>HTTP\x20Status\x20400\x20\xe2\x80\x93\x20Bad\x
+SF:20Request</h1><hr\x20class=\"line\"\x20/><p><b>Type</b>\x20Exception\x2
+SF:0Report</p><p><b>Message</b>\x20Invalid\x20character\x20found\x20in\x20
+SF:the\x20HTTP\x20protocol\x20\[RTSP&#47;1\.00x0d0x0a0x0d0x0a\.\.\.\]</p><
+SF:p><b>Description</b>\x20The\x20server\x20cannot\x20or\x20will\x20not\x2
+SF:0process\x20the\x20request\x20due\x20to\x20something\x20that\x20is\x20p
+SF:erceived\x20to\x20be\x20a\x20client\x20error\x20\(e\.g\.,\x20malformed\
+SF:x20request\x20syntax,\x20invalid\x20");
+Service Info: Host: AUTHORITY; OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Host script results:
+| smb2-time: 
+|   date: 2025-07-28T20:39:57
+|_  start_date: N/A
+| smb2-security-mode: 
+|   3:1:1: 
+|_    Message signing enabled and required
+|_clock-skew: mean: 3h59m59s, deviation: 0s, median: 3h59m58s
+
+NSE: Script Post-scanning.
+Initiating NSE at 00:40
+Completed NSE at 00:40, 0.00s elapsed
+Initiating NSE at 00:40
+Completed NSE at 00:40, 0.00s elapsed
+Initiating NSE at 00:40
+Completed NSE at 00:40, 0.00s elapsed
+Read data files from: /usr/bin/../share/nmap
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 96.46 seconds
+```
+
+Scanning shows that a website with TLS enabled is open at port 8443. I'll check that out later let's go through SMB enumeration first
+
+## Enumeration
+
+Guest enumeration is enabled
+
+```
+❯ nxc smb authority.htb -u 'a' -p '' --users
+```
+
+![Description](/static/images/htb/windows/authority/1.jpg)
+
+
+found some interesting shares
+
+```
+❯ smbclient -L authority.htb -U a%
+```
+
+![Description](/static/images/htb/windows/authority/2.jpg)
+
+As I went through the directories I notice it was probably a lot of files, so I just recursively downloaded all of them
+
+![Description](/static/images/htb/windows/authority/3.jpg)
+
+```
+smb: \> recurse ON
+smb: \> prompt OFF
+smb: \> mget *
+```
+
+![Description](/static/images/htb/windows/authority/4.jpg)
+
+Now we can check them out slowly. The 4 folders have a lot of Ansible files but I only found these interesting:
+
+`Automation/Ansible/PWM/defaults/main.yml`:
+
+![Description](/static/images/htb/windows/authority/5.jpg)
+
+`Automation/Ansible/PWM/templates/tomcat-users.xml.j2`:
+
+![Description](/static/images/htb/windows/authority/6.jpg)
+
+`Automation/Ansible/PWM/templates/ansible_inventory`:
+
+![Description](/static/images/htb/windows/authority/7.jpg)
+
+`Automation/Ansible/PWM/templates/README.md`:
+
+![Description](/static/images/htb/windows/authority/8.jpg)
+
+Now, checking out the website, we are greeted with a login page
+
+![Description](/static/images/htb/windows/authority/9.jpg)
+
+I tried all the different default usernames and passwords that we found earlier but that didn't work. I also tried looking up for some exploits for the
+current version but to no avail.
+
+Checking out at Github, PWM is an open source password self-service application for LDAP directories
+
+![Description](/static/images/htb/windows/authority/10.jpg)
+
+Looking at at the configuration manager page, the logs are authenticating as `svc_pwm`. This might be our user, we just need the password
+
+![Description](/static/images/htb/windows/authority/11.jpg)
+
+After looking around, turns out the Ansible file at `main.yml` file is an encrypted vault that we can bruteforce using 
+ansible2john
+
+![Description](/static/images/htb/windows/authority/12.jpg)
+
+The file has 3 encrypted blobs in the same vault so I assumed the password was the same. We need to save one of the blobs in
+a `yml` file
+
+```
+❯ ansible2john vault-pass.yml > vault-pass-hash.txt
+
+❯ john --wordlist=/usr/share/wordlists/rockyou.txt vault-pass-hash.txt   
+Using default input encoding: UTF-8
+Loaded 1 password hash (ansible, Ansible Vault [PBKDF2-SHA256 HMAC-256 256/256 AVX2 8x])
+No password hashes left to crack (see FAQ)
+
+❯ john vault-pass-hash.txt --show 
+vault-pass.yml:!@#$%^&*
+
+1 password hash cracked, 0 left
+```
+
+Nice, we have the password. Now we need to crack the vault, we will use the `ansible-vault` utility
+
+```
+❯ ansible-vault decrypt pwm_admin.yml --output decrypted_vault_uname.txt
+Vault password: 
+Decryption successful
+ 
+
+❯ ansible-vault decrypt ldap_admin_pass.yml --output decrypted_vault_ldap_pass.txt
+Vault password: 
+Decryption successful
+
+  
+❯ ansible-vault decrypt pwm_admin_pass.yml --output decrypted_vault_admin_pass.txt 
+Vault password: 
+Decryption successful
+```
+
+Tried to verify the `svc_ldap` credentials but doesn't work
+
+```
+nxc smb authority.htb -u 'svc_ldap' -p 'DevT3st@123'
+```
+
+![Description](/static/images/htb/windows/authority/13.jpg)
+
+
+
+
+
+
+
