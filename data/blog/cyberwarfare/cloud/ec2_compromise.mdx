@@ -1,0 +1,77 @@
+---
+title: CWL - EC2 Compromise
+date: '2026-01-24'
+tags: ['cyberwarfarelabs', 'cloud', 'SSRF', 'awscli']
+draft: false
+summary:  The challenge is a webapp that has a SSRF vulnerability, the goal of the challenge is to exploit the vulnerability to steal sensitive EC2 metadata, then use the IAM credentials to make an authenticated API call and retrive the Instance ID which is the flag
+---
+
+
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/ec2_compromise.png" alt="Description" />
+</div>
+
+
+<TOCInline toc={props.toc} asDisclosure />
+
+
+## Recon
+
+We are met with a normal webpage, this challenge is pretty direct and straightforward. Therefore, fuzzing is unnecessary
+
+![Description](/static/images/cyberwarfare/cloud/1.png)
+
+
+One of the pages has a contact form, let us enter some data and observe the response in burp
+
+![Description](/static/images/cyberwarfare/cloud/2.png)
+
+Response looks normal, except the request that we sent. Looking closely, we can see that the field for "organization" is apparently given the parameter `ip`, which is great for testing SSRF
+
+![Description](/static/images/cyberwarfare/cloud/3.png)
+
+While most SSRF testing uses 127.0.0.1, we will test this with `169.254.169.254`. Why this address you ask?
+
+>[!TIP]
+> `169.254.169.254` is a special IP address that is specifically used to allow virtual machines (VMs) or instances running in the cloud to access critical information about themselves (instance, metadata, a set of information related to an EC2 instance). Cloud services like AWS use this address.
+
+
+![Description](/static/images/cyberwarfare/cloud/4.png)
+
+## Stealing IAM Credentials
+
+To determine if the EC2 instance has an IAM role associated with it, we can make a request to `http://169.254.169.254/latest/meta-data/iam/`.
+
+If there is a valid role we can steal, we can make a request to `http://169.254.169.254/latest/meta-data/iam/security-credentials/`.
+
+![Description](/static/images/cyberwarfare/cloud/5.png)
+
+This will return the name of the IAM role associated with the credentials, in our case the name is `ec2-prod-role`
+
+![Description](/static/images/cyberwarfare/cloud/6.png)
+
+
+Appending the role name to our previous query will reveal the available credentials
+
+`http://169.254.169.254/latest/meta-data/iam/security-credentials/ec2-prod-role`
+
+![Description](/static/images/cyberwarfare/cloud/7.png)
+
+
+## Using IAM Credentials
+
+We will need to export these credentials as environment variables
+
+```bash
+export AWS_ACCESS_KEY_ID=XXXXX
+export AWS_SECRET_ACCESS_KEY=XXXXX
+export AWS_SESSION_TOKEN=XXXXX
+```
+
+After having done that we will use the `aws` cli tool to authenticate and make an API call to retrieve the Instance ID
+
+```bash
+aws sts get-caller-identity
+```
+
+![Description](/static/images/cyberwarfare/cloud/8.png)
