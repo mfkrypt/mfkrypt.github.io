@@ -8,7 +8,7 @@ summary:  The challenge is a webapp that has a SSRF vulnerability, the goal of t
 
 
 <div className="flex justify-center">
-	<img src="/static/images/cyberwarfare/cloud/ec2_compromise.png" alt="Description" />
+	<img src="/static/images/cyberwarfare/cloud/ec2_compromise/ec2_compromise.png" alt="Description" />
 </div>
 
 
@@ -19,16 +19,16 @@ summary:  The challenge is a webapp that has a SSRF vulnerability, the goal of t
 
 We are met with a normal webpage, this challenge is pretty direct and straightforward. Therefore, fuzzing is unnecessary
 
-![Description](/static/images/cyberwarfare/cloud/1.png)
+![Description](/static/images/cyberwarfare/cloud/ec2_compromise/1.png)
 
 
 One of the pages has a contact form, let us enter some data and observe the response in burp
 
-![Description](/static/images/cyberwarfare/cloud/2.png)
+![Description](/static/images/cyberwarfare/cloud/ec2_compromise/2.png)
 
 Response looks normal, except the request that we sent. Looking closely, we can see that the field for "organization" is apparently given the parameter `ip`, which is great for testing SSRF
 
-![Description](/static/images/cyberwarfare/cloud/3.png)
+![Description](/static/images/cyberwarfare/cloud/ec2_compromise/3.png)
 
 While most SSRF testing uses 127.0.0.1, we will test this with `169.254.169.254`. Why this address you ask?
 
@@ -36,7 +36,7 @@ While most SSRF testing uses 127.0.0.1, we will test this with `169.254.169.254`
 > `169.254.169.254` is a special IP address that is specifically used to allow virtual machines (VMs) or instances running in the cloud to access critical information about themselves (instance, metadata, a set of information related to an EC2 instance). Cloud services like AWS use this address.
 
 
-![Description](/static/images/cyberwarfare/cloud/4.png)
+![Description](/static/images/cyberwarfare/cloud/ec2_compromise/4.png)
 
 ## Stealing IAM Credentials
 
@@ -44,18 +44,18 @@ To determine if the EC2 instance has an IAM role associated with it, we can make
 
 If there is a valid role we can steal, we can make a request to `http://169.254.169.254/latest/meta-data/iam/security-credentials/`.
 
-![Description](/static/images/cyberwarfare/cloud/5.png)
+![Description](/static/images/cyberwarfare/cloud/ec2_compromise/5.png)
 
 This will return the name of the IAM role associated with the credentials, in our case the name is `ec2-prod-role`
 
-![Description](/static/images/cyberwarfare/cloud/6.png)
+![Description](/static/images/cyberwarfare/cloud/ec2_compromise/6.png)
 
 
 Appending the role name to our previous query will reveal the available credentials
 
 `http://169.254.169.254/latest/meta-data/iam/security-credentials/ec2-prod-role`
 
-![Description](/static/images/cyberwarfare/cloud/7.png)
+![Description](/static/images/cyberwarfare/cloud/ec2_compromise/7.png)
 
 
 ## Using IAM Credentials
@@ -74,7 +74,7 @@ After having done that we will use the `aws` cli tool to authenticate and make a
 aws sts get-caller-identity
 ```
 
-![Description](/static/images/cyberwarfare/cloud/8.png)
+![Description](/static/images/cyberwarfare/cloud/ec2_compromise/8.png)
 
 
 ---

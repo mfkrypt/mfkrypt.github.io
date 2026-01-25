@@ -1,4 +1,8 @@
 {
+  "cyberwarfarelabs": 1,
+  "cloud": 1,
+  "ssrf": 1,
+  "awscli": 1,
   "machine": 13,
   "windows": 11,
   "active-directory": 11,
