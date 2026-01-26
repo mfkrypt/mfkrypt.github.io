@@ -1,0 +1,90 @@
+---
+title: CWL - Compute Crack
+date: '2026-01-26'
+tags: ['cyberwarfarelabs', 'cloud', 'SSRF', 'azure']
+draft: false
+summary:  The challenge is a webapp that has a SSRF vulnerability, the goal is to exploit the vulnerability and extract the access token to authenticate then retrieve the Subscription ID which is the flag 
+---
+
+
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/compute_crack/compute_crack.png" alt="Description" />
+</div>
+
+
+<TOCInline toc={props.toc} asDisclosure />
+
+
+## Disclaimer
+
+Although this challenge is about SSRF, I was not sure if it was intended or not that the way solve this was to chain a Command Injection vulnerability
+
+
+## Recon
+
+Upon browsing to the target, we are met with a webpage that has a form request
+
+![Description](/static/images/cyberwarfare/cloud/compute_crack/1.png)
+
+![Description](/static/images/cyberwarfare/cloud/compute_crack/2.png)
+
+
+Let us enter some data and observe the response in burp
+
+![Description](/static/images/cyberwarfare/cloud/compute_crack/3.png)
+
+
+After a bit of testing we discover the `organization` parameter is also vulnerable to Command Injection
+
+![Description](/static/images/cyberwarfare/cloud/compute_crack/4.png)
+
+Given that the challenge is about Azure SSRF, we can try to `curl` the internal `169.254.169.254` to access the Instance Metadata Service (IMDS). More about what this IP address is in my previous [post](https://mfkrypt.github.io/blog/cyberwarfare/cloud/ec2_compromise#recon). 
+We also would need the `Metadata` header to be set to `True` in order for the query to work.
+
+The `curl` command would be:
+
+```bash
+curl -H "Metadata: True" "http://169.254.169.254/metadata"
+```
+
+![Description](/static/images/cyberwarfare/cloud/compute_crack/5.png)
+
+According to the [docs](![Description](/static/images/cyberwarfare/cloud/compute_crack/3.png)), these are API versions that can be accessed to retrieve the IMDS. I tested
+some of it and all of them gave the same output, so its just a matter of choosing one API version to append at the end of the command
+
+The `curl` command would be:
+
+```bash
+curl -H "Metadata: True" "http://169.254.169.254/metadata/instance?api-version=2025-04-07"
+```
+
+![Description](/static/images/cyberwarfare/cloud/compute_crack/6.png)
+
+
+## Acquiring Subscription ID
+
+We can pipe the output to `python -m json.tool` to parse the json and make it readable
+
+
+![Description](/static/images/cyberwarfare/cloud/compute_crack/7.png)
+
+Scrolling down we can see the `subscriptionId` field and value
+
+
+![Description](/static/images/cyberwarfare/cloud/compute_crack/8.png)
+
+
+## Disclaimer 2
+
+
+I tried to solve it by using the PowerShell AzureAD Module and the `az` cli tool but I found out that it was impossible without an organization email. For the `az` cli tool I don't know why the access token I found on another endpoint was incorrect
+...I could be wrong though. If anyone knows about this, you can reach out to me on Discord, mfkrypt
+
+
+---
+
+## Resources
+
+- https://learn.microsoft.com/en-us/azure/virtual-machines/instance-metadata-service?tabs=linux
+- https://cybercx.com.au/blog/azure-ssrf-metadata/
+- https://book.hacktricks.wiki/en/pentesting-web/ssrf-server-side-request-forgery/cloud-ssrf.html#azure-vm

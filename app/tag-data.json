@@ -1,7 +1,8 @@
 {
-  "cyberwarfarelabs": 1,
-  "cloud": 1,
-  "ssrf": 1,
+  "cyberwarfarelabs": 2,
+  "cloud": 2,
+  "ssrf": 2,
+  "azure": 1,
   "awscli": 1,
   "machine": 13,
   "windows": 11,
