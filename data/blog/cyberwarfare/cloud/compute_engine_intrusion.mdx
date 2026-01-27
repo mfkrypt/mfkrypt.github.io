@@ -1,0 +1,91 @@
+---
+title: CWL - Compute Engine Intrusion
+date: '2026-01-27'
+tags: ['cyberwarfarelabs', 'cloud', 'SSRF', 'GCP', 'Command Injection']
+draft: false
+summary:  The challenge is a webapp that has a Command Injection & SSRF vulnerability, the goal is to chain the vulnerabilities to enumerate the GCP Compute instance and retrieve the Service Account Email ID  
+---
+
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/compute_engine_intrusion/compute_engine_intrusion.png" alt="Description" />
+</div>
+
+
+<TOCInline toc={props.toc} asDisclosure />
+
+
+## Recon
+
+Upon browing to our target we can see the directory listing enabled
+
+![Description](/static/images/cyberwarfare/cloud/compute_engine_intrusion/1.png)
+
+
+Looking at `job_search.html` we can see that we get a response from submitting some data, let us observe the request and response in burp
+
+![Description](/static/images/cyberwarfare/cloud/compute_engine_intrusion/2.png)
+
+
+Pretty standard POST request, observe the `ip` parameter that we can use to test for SSRF
+
+![Description](/static/images/cyberwarfare/cloud/compute_engine_intrusion/3.png)
+
+
+## Roadblock for SSRF
+
+
+We can access the GCP instance metadata endpoint using:
+
+- `http://169/254/169/254`
+- `http://metadata.google.internal`
+- `http://metadata`
+
+
+![Description](/static/images/cyberwarfare/cloud/compute_engine_intrusion/4.png)
+
+
+It works, we can keep appending the paths that appear in output until `/v1` that we cannot see anymore paths appear
+
+![Description](/static/images/cyberwarfare/cloud/compute_engine_intrusion/5.png)
+
+Apparently, to access the available metadata endpoints we need to add a HTTP header `Metada-Flavor` with the value set to `Google`
+
+
+## Command Injection
+
+After testing, we discover the `organization` parameter is vulnerable to Command Injection which we can execute code
+
+![Description](/static/images/cyberwarfare/cloud/compute_engine_intrusion/6.png)
+
+
+## Chaining vulnerabilities
+
+Leveraging the Command Injection, we can `curl` and add the required `Metadata-Flavor` then freely access the GCP intance metadata
+
+The command would be:
+
+```bash
+curl -H "Metadata-Flavor:Google" "http://metadata.google.internal/computeMetadata/v1/"
+```
+
+![Description](/static/images/cyberwarfare/cloud/compute_engine_intrusion/7.png)
+
+
+To access the Service Accounts Email IDs we use this path:
+
+```bash
+http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/
+```
+
+![Description](/static/images/cyberwarfare/cloud/compute_engine_intrusion/8.png)
+
+
+---
+
+## Sources
+
+- https://cloud.hacktricks.wiki/en/pentesting-cloud/gcp-security/index.html#gcp-pentesterred-team-methodology
+- https://docs.cloud.google.com/appengine/docs/legacy/standard/java/accessing-instance-metadata
+- https://book.hacktricks.wiki/en/pentesting-web/ssrf-server-side-request-forgery/cloud-ssrf.html#gcp
+
+
