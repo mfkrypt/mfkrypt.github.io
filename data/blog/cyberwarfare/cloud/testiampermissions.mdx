@@ -1,0 +1,73 @@
+---
+title: CWL - testIamPermissions() Probe
+date: '2026-01-29'
+tags: ['cyberwarfarelabs', 'cloud', 'GCP', 'testIamPermissions']
+draft: false
+summary:  The challenge provides JSON credentials that can be used to brute-force IAM permissions to enumerate permissions on a service account
+---
+
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/testiampermissions/testiampermissions.png" alt="Description" />
+</div>
+
+
+<TOCInline toc={props.toc} asDisclosure />
+
+
+## Starting Point
+
+At the start, we are given a JSON file that seems like a form of credentials for the service account, `svc-mgmt-sa`
+
+
+```JSON
+{
+  "type": "service_account",
+  "project_id": "woven-acolyte-428406-v9",
+  "private_key_id": "8c7a9c0564641d6bd682bbdc62079cc95b5ce989",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC2t13Ikjn6U9YD\n8kaK5nCSP5kI8Q5Y1j1xWEJuv+YfqFZRmeX+BVlZfvMMS2celiFixAsh1rO4XJra\nywBiiC5sxHPZ4Efd0bUkJ9IrAlmNRvrRri55j5Z8eL33n2TAY7icCpqfFMqR83VZ\nLTnFx8mwt8CvQZy5RbWQNdXJc3Lrm/nwIPaqa/YUjU2wPqckm5jgXN+K0RLX80Vg\nP6NWzFpFDZ6dh5qFdX/97DH7d+gSugk9pYAEYer6Gx/XGEzzD7D3Ydhng2zj9PsC\nrWVtLo8e4e9336NSOFWc//ZQeqU5Xt3+k9XpJILG+W5kEMNXLmd+TZbYMuTqgkgT\nhIJ9hrtBAgMBAAECggEAEBPuOd4lducV+nlBBtZEipdJDpXeRtKXS9gnLwVOKR6l\nddRpKLiXcP4a7KEynOjmCCxVtG+8QcP4UQ9djyNfk8JCVXuG/LhddvsquGPNCyxM\nmX3OaMj0m4BTwFczb5B20q2bhysLsNsaSjNmFYbBMykq2IvD+t5CSJh2zEgPO+HI\nDrcdcOCmcqUoYfTN6dksRC2Sc9QjNSYsSEUQnVQDxHdmxFk2e6WgPO8NOUfoY3Hm\nANyunrbnS88xOx4+5qn2pyWsOjS8KFmGNKx2Jvd7wBe2oAzPKI5VT/VEoHXNUDXA\nFB1Ad83Igxl4x0scwbknAUslQaHiUh6JVlGr6kYehwKBgQDq0N2BYo2KddLH7nos\nhiW4u6HZ2iWR+uElaZapZ9PVjaTloe7FZFvD+dKVBEBBfg+weSqDlaIo8GSelcyO\nNtXNOTBazKkJ0FYewea5mbOR8Az/c+AbZKQMQe05WVFDa+g93rWA/0Wj+3oj4wlG\nFNcOu//i8HQm30BCFlLAwi7nPwKBgQDHMz84G/QzyqoU3RFKOaST+UsATQk2etRm\nsIcgFAKN2sZAy7bGXivfo0TKvbWa2Hu681euO9K/8SwTIoao1PkhURu28xztz97g\n1NZg+jLm4zJ7yywVawQX1MjUV6hh1swxUFZIM0Lg22AalCb0FL9amole2H2Cvmon\nzqRMotg9fwKBgQCLtq61F0CES8qYbwp+h2rWWb3Zc3S7QPzJV+Pu8/oUrGyavRjm\nleoL1w823wqkbS9EnzNui4+qsC4ONa86RuI7c3WT8QX68tzq/BAeCpfPk3cIX5fO\ndLkvGeLeJoi1hvTuKx7vm/OBuFVaGPIhorC68Z01GEDkCB2htMqUKnXh3QKBgQCE\nBickXQKhQPUxFsPa2hGGMXfQHz636PjVhrJIRHrc4d78GwhsuQWDF4cEiG/QzSJU\naev3ApdPt9xqYju1slHcDxG7U64cv+UMRoQ/ihQqivJusd3p5B+2W8UvV1m2XtK+\n7GwDNlZhCYTMmNyocQfSWRIq1nl5KhLZh0/Fqzh+qQKBgAyjr/8emV4Evp0PGPSE\n2x3VI1TkVl8QIYHR5nxFgWCvBcYunXh8od7iBlINwkbUE/cX3/qUjN/4xOJbIEgJ\nJf7c1fR+5EAF1gQkXFLMpTy4FF7zH2hTTKo9BVpK2iphQhQjaQB3rAHUVMrhj23P\nxnw/49WraVyPVYQOld3P5XlF\n-----END PRIVATE KEY-----\n",
+  "client_email": "svc-mgmt-sa@woven-acolyte-428406-v9.iam.gserviceaccount.com",
+  "client_id": "115607362427768769459",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/svc-mgmt-sa%40woven-acolyte-428406-v9.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
+```
+
+
+## Brute Forcing
+
+
+Looking at this [tool](https://github.com/carlospolop/Bruteforce-GCP-Permissions), it is capable of accepting the JSON file as
+an argument to perform the brute forcing
+
+
+
+![Description](/static/images/cyberwarfare/cloud/testiampermissions/1.png)
+
+
+```bash
+python3 bf_my_gcp_perms.py -c credentials.json -p woven-acolyte-428406-v9
+```
+
+- `-c` is to input the JSON credentials file
+- `-p` is to use the current project ID
+
+
+
+![Description](/static/images/cyberwarfare/cloud/testiampermissions/2.png)
+
+
+Besides the 2 `clientauthconfig` permissions that are used to view and list OAuth information, `iam.serviceAccounts.actAs` stands out.
+
+According to the [docs](https://docs.cloud.google.com/iam/docs/service-account-permissions), `iam.serviceAccounts.actAs` is a permission that
+is present on several roles that are used to attach to resources that need to be authenticated as service accounts.
+
+
+---
+
+## Sources
+
+- https://docs.cloud.google.com/iam/docs/service-account-permissions
+- https://docs.cloud.google.com/iam/docs/roles-permissions/iam#iam.serviceAccounts.actAs
