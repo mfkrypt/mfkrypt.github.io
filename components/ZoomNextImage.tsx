@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import NextImage, { type ImageProps } from 'next/image'
@@ -13,12 +13,15 @@ const basePath =
 export default function ZoomNextImage({ className = '', style, src, alt, ...rest }: ImageProps) {
   const [open, setOpen] = useState(false)
 
+  const safeAlt = alt ?? ''
+
   const imageClassName = (className ? className + ' ' : '') + 'transition-transform duration-200'
 
   const resolvedSrc = useMemo(() => {
     if (typeof src !== 'string') return src
     // Keep absolute/remote URLs untouched
-    if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) return src
+    if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:'))
+      return src
     return `${basePath}${src}`
   }, [src])
 
@@ -41,43 +44,50 @@ export default function ZoomNextImage({ className = '', style, src, alt, ...rest
 
   return (
     <>
-      <span
-        className="inline-block cursor-zoom-in"
+      <button
+        type="button"
+        className="inline-block cursor-zoom-in bg-transparent p-0"
+        aria-label={safeAlt ? `Zoom image: ${safeAlt}` : 'Zoom image'}
         onClick={() => setOpen(true)}
       >
         <NextImage
           {...rest}
           src={resolvedSrc}
-          alt={alt}
+          alt={safeAlt}
           style={style}
           className={imageClassName}
         />
-      </span>
+      </button>
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-6"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6"
           role="dialog"
           aria-modal="true"
-          onClick={() => setOpen(false)}
         >
+          <button
+            type="button"
+            aria-label="Close image preview"
+            className="absolute inset-0 bg-black/70"
+            onClick={() => setOpen(false)}
+          />
+
           {typeof resolvedSrc === 'string' ? (
-            <img
-              src={resolvedSrc}
-              alt={alt}
-              className="max-h-[92vh] max-w-[96vw] rounded-md shadow-2xl"
-              style={{ transform: 'scale(1.08)' }}
-              onClick={(e) => e.stopPropagation()}
-            />
+            <div className="relative z-10">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={resolvedSrc}
+                alt={safeAlt}
+                className="max-h-[92vh] max-w-[96vw] rounded-md shadow-2xl"
+                style={{ transform: 'scale(1.08)' }}
+              />
+            </div>
           ) : (
-            <div
-              className="relative max-h-[92vh] max-w-[96vw]"
-              onClick={(e) => e.stopPropagation()}
-            >
+            <div className="relative z-10 max-h-[92vh] max-w-[96vw]">
               <NextImage
                 {...rest}
                 src={resolvedSrc}
-                alt={alt}
+                alt={safeAlt}
                 className={(className ? className + ' ' : '') + 'rounded-md shadow-2xl'}
               />
             </div>

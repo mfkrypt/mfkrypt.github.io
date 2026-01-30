@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import { useEffect, useState, type ImgHTMLAttributes } from 'react'
 
@@ -30,31 +30,45 @@ export default function ZoomImage({ className = '', style, ...props }: ZoomImage
   const mergedClassName =
     (className ? className + ' ' : '') + 'cursor-zoom-in transition-transform duration-200'
 
+  const alt = props.alt ?? ''
+
   return (
     <>
-      <img
-        {...props}
-        className={mergedClassName}
-        style={style}
-        onClick={(e) => {
-          props.onClick?.(e)
-          setOpen(true)
-        }}
-      />
+      <button
+        type="button"
+        className="inline-block bg-transparent p-0"
+        aria-label={alt ? `Zoom image: ${alt}` : 'Zoom image'}
+        onClick={() => setOpen(true)}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img {...props} alt={alt} className={mergedClassName} style={style} />
+      </button>
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-6"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6"
           role="dialog"
           aria-modal="true"
-          onClick={() => setOpen(false)}
         >
-          <img
-            {...props}
-            className={(className ? className + ' ' : '') + 'max-h-[92vh] max-w-[96vw] rounded-md shadow-2xl'}
-            style={{ ...(style || {}), transform: 'scale(1.08)' }}
-            onClick={(e) => e.stopPropagation()}
+          <button
+            type="button"
+            aria-label="Close image preview"
+            className="absolute inset-0 bg-black/70"
+            onClick={() => setOpen(false)}
           />
+
+          <div className="relative z-10">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              {...props}
+              alt={alt}
+              className={
+                (className ? className + ' ' : '') +
+                'max-h-[92vh] max-w-[96vw] rounded-md shadow-2xl'
+              }
+              style={{ ...(style || {}), transform: 'scale(1.08)' }}
+            />
+          </div>
         </div>
       )}
     </>
