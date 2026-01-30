@@ -1,8 +1,9 @@
 {
-  "cyberwarfarelabs": 3,
-  "cloud": 3,
+  "cyberwarfarelabs": 5,
+  "cloud": 5,
+  "gcp": 3,
+  "testiampermissions": 2,
   "ssrf": 3,
-  "gcp": 1,
   "command-injection": 1,
   "azure": 1,
   "awscli": 1,

@@ -1,0 +1,138 @@
+---
+title: CWL - Uncovering the App Registration
+date: '2026-01-31'
+tags: ['cyberwarfarelabs', 'cloud', 'Azure', 'MS-Graph']
+draft: false
+summary:  The challenge provides Client Credentials that are used to identify the Tenant ID, then using that to request an Access Token that we can use to authenticate and enumerate the API Permission assigned to the Application
+---
+
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/uncoveringappreg/uncoveringappreg.png" alt="Description" />
+</div>
+
+
+<TOCInline toc={props.toc} asDisclosure />
+
+
+
+## Starting Point
+
+At the start, we are provided the Client ID, Client Secret and a Domain Name
+
+![Description](/static/images/cyberwarfare/cloud/uncoveringappreg/1.png)
+
+
+## Retrieving the Tenant ID
+
+There are 2 ways we can use to retrieve the Tenant ID that I will showcase
+
+
+
+### 1. Unauthenticated Openid Configuration
+
+Using the available Microsoft API endpoint for providing OAuth configurations, we can query the Tenant ID directly
+by providing the Domain Name inside the URL:
+
+```URL
+https://login.microsoftonline.com/secure-corp.org/v2.0/.well-known/openid-configuration
+```
+
+![Description](/static/images/cyberwarfare/cloud/uncoveringappreg/2.png)
+
+
+### 2. Using AADInternals PowerShell Library
+
+After installing the module and importing it, we can immediately retrieve the Tenant ID
+
+```PowerShell
+Get-AADIntTenantID -Domain secure-corp.org
+```
+
+![Description](/static/images/cyberwarfare/cloud/uncoveringappreg/3.png)
+
+
+
+
+
+## Authenticating into Azure
+
+
+Now that we have the Tenant ID, we can attempt to authenticate into Azure. First, we need the Access Token. 
+We can acquire this by making a `curl` request to Microsoft's API `/token` endpoint using our credentials
+
+
+```bash
+curl -X POST -H "Content-Type: application/x-www-form-urlencoded" -d 'client_id=caaa28c5-b8da-4d29-b42e-95b1aba6b81c&scope=https%3A%2F%2Fgraph.microsoft.com%2F.default&client_secret=bXj8Q~_v1Y.hArjCqwQBUhCE-MwAvqB_Q1AcAa-V&grant_type=client_credentials' 'https://login.microsoftonline.com/f2a33211-e46a-4c92-b84d-aff06c2cd13f/oauth2/v2.0/token'
+```
+
+![Description](/static/images/cyberwarfare/cloud/uncoveringappreg/4.png)
+
+By making the request, the endpoint returns a JWT access token that we will use later.
+
+
+Next, we need to install a previous version of the `Microsoft Graph` PowerShell library which is version 2.25.0. This
+is because there exists a recurring problem even in the latest version that if fails to verify the Access Token
+
+https://learn.microsoft.com/en-us/answers/questions/2237145/invalid-jwt-access-token
+
+
+```PowerShell
+Install-Module -Name Microsoft.Graph -RequiredVersion 2.25.0
+```
+
+After installing and importing the module, we can pass the Access Token to a variable and call the `Connect-MgGraph` function
+
+```PowerShell
+$token = "eyJ0eXAiOiJKV1QiLCJub25jZSI6ImpwTXJHdVZvMWtYRFl6a1ZGYWtmSjZaeE9jTFVvNlJwRjg3S2ZvYW1BYlUiLCJhbGciOiJSUzI1NiIsIng1dCI6IlBjWDk4R1g0MjBUMVg2c0JEa3poUW1xZ3dNVSIsImtpZCI6IlBjWDk4R1g0MjBUMVg2c0JEa3poUW1xZ3dNVSJ9.eyJhdWQiOiJodHRwczovL2dyYXBoLm1pY3Jvc29mdC5jb20iLCJpc3MiOiJodHRwczovL3N0cy53aW5kb3dzLm5ldC9mMmEzMzIxMS1lNDZhLTRjOTItYjg0ZC1hZmYwNmMyY2QxM2YvIiwiaWF0IjoxNzY5NzYxMDgyLCJuYmYiOjE3Njk3NjEwODIsImV4cCI6MTc2OTc2NDk4MiwiYWlvIjoiazJaZ1lQQ2M0YmkwWFgvZDVqVXRDbVVzenZQOEFBPT0iLCJhcHBfZGlzcGxheW5hbWUiOiJkZXYtYXBwIiwiYXBwaWQiOiJjYWFhMjhjNS1iOGRhLTRkMjktYjQyZS05NWIxYWJhNmI4MWMiLCJhcHBpZGFjciI6IjEiLCJpZHAiOiJodHRwczovL3N0cy53aW5kb3dzLm5ldC9mMmEzMzIxMS1lNDZhLTRjOTItYjg0ZC1hZmYwNmMyY2QxM2YvIiwiaWR0eXAiOiJhcHAiLCJvaWQiOiJkNmJjNThlZC0xMWY2LTQ3Y2QtYTE2OC1lNGQ2MDZjNWIyMmEiLCJyaCI6IjEuQWI0QUVUS2o4bXJra2t5NFRhX3diQ3pSUHdNQUFBQUFBQUFBd0FBQUFBQUFBQUFBQUFDLUFBLiIsInJvbGVzIjpbIkFwcGxpY2F0aW9uLlJlYWQuQWxsIl0sInN1YiI6ImQ2YmM1OGVkLTExZjYtNDdjZC1hMTY4LWU0ZDYwNmM1YjIyYSIsInRlbmFudF9yZWdpb25fc2NvcGUiOiJBUyIsInRpZCI6ImYyYTMzMjExLWU0NmEtNGM5Mi1iODRkLWFmZjA2YzJjZDEzZiIsInV0aSI6IlVDaTIxRkpBakVDWjBfNkRqSUZIQUEiLCJ2ZXIiOiIxLjAiLCJ3aWRzIjpbIjA5OTdhMWQwLTBkMWQtNGFjYi1iNDA4LWQ1Y2E3MzEyMWU5MCJdLCJ4bXNfYWNkIjoxNzI2NTc3Nzk4LCJ4bXNfYWN0X2ZjdCI6IjMgOSIsInhtc19mdGQiOiJkVnV3M3hSdzV2QVU2Wmh0TV9FeTVHdnBLQi1DbmhJT3dyUlpXS1hMbXJBQmEyOXlaV0ZqWlc1MGNtRnNMV1J6YlhNIiwieG1zX2lkcmVsIjoiMiA3IiwieG1zX3JkIjoiMC40MkxqWUJKaTJzY29KTUxCTGlTUXhyRnRaZEw4WjY3eko0VXlGajJidkJBb3lpa2tZTG5XLTJ4d21JTG43T1VUZ3czVHR4VUJSVG1FQkpnWklPQUFsQWFLY2dzSkdLb0lfdmpJenp4Zlp1MV96Mmc3clowQSIsInhtc19zcGN1IjoidHJ1ZSIsInhtc19zdWJfZmN0IjoiMyA5IiwieG1zX3RjZHQiOjE3MjAwNzEyNTQsInhtc190bnRfZmN0IjoiMyA0In0.ZzFel5HrZMVn5Mqu2cWoGF7pDpx6RHf1M-0UoiTBwPkex_GAdvpAf6skwDo9I-vmbCAs5TBC1JnwQTyRlGKPqlOl-TsmCGeJbfHW5Z2efBtjCkDWO9jFs7aIwE2ASvJUG7-VXHLirbAN6_U0fS1_KOQlu_-epv8YYM-Gff2rtLTbBP7iFz1NtQwJRanx98XRRrlknbnWTxwyci8S9nbsgVNJPXrSFY0whD5AKJTnBuM5r6jWkVpCn2sKyfmhXIdvE96SzGA-BQ_sGXeGbkLQny2a4xssz6abBabb2qTIJVtM0iynbMWBNJxXzTYYusJ4F_WSSXYWkT9swbHxkZnfPw"
+```
+
+```PowerShell
+$securetoken = ConvertTo-SecureString $token -AsPlainText -Force
+Connect-MgGraph -AccessToken $securetoken
+```
+
+![Description](/static/images/cyberwarfare/cloud/uncoveringappreg/5.png)
+
+
+
+## Enumerating App Registration API Permissions
+
+We can use the `Get-MgApplication` function to discover available applications
+
+```PowerShell
+Get-MgApplication -All
+```
+
+![Description](/static/images/cyberwarfare/cloud/uncoveringappreg/6.png)
+
+The only one we need to look at is the `AppId` that corresponds to the Client ID that we are using to authenticate which is `caaa28c5-b8da-4d29-b42e-95b1aba6b81c`
+
+
+Apart from that, we can use the `Get-MgContext` function to check the current permissions of the application in context
+
+```PowerShell
+Get-MgContext
+```
+
+![Description](/static/images/cyberwarfare/cloud/uncoveringappreg/7.png)
+
+Observe the permissions at the 'Scopes' returned the permission `Application.Read.All` which is our flag!
+
+
+## Bonus (Easier Way)
+
+After completing the lab, I discovered that the we could directly view the appliation's permissions directly from the JWT Access Token,
+ we just need to decode it using a website like https://www.jwt.io/
+
+
+![Description](/static/images/cyberwarfare/cloud/uncoveringappreg/8.png)
+
+
+---
+
+## Sources
+
+- https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow#get-a-token
+- https://www.easy365.io/how-to-check-the-permissions-of-your-microsoft-graph-application-via-jwt-0e0e7d6af68d/
+- https://cloud.hacktricks.wiki/en/pentesting-cloud/azure-security/az-services/az-azuread.html#connection
+- https://www.reddit.com/r/AZURE/comments/ql09mh/getting_tenant_id_with_client_id_and_client/
