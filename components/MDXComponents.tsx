@@ -6,9 +6,13 @@ import Image from './Image'
 import CustomLink from './Link'
 import TableWrapper from './TableWrapper'
 import YouTubeEmbed from './YoutubeEmbed'
+import ZoomImage from './ZoomImage'
+import ZoomNextImage from './ZoomNextImage'
 
 export const components: MDXComponents = {
-  Image,
+  // remarkImgToJsx converts markdown images to <Image />, so override that
+  Image: ZoomNextImage,
+  img: ZoomImage,
   TOCInline,
   a: CustomLink,
   pre: Pre,
