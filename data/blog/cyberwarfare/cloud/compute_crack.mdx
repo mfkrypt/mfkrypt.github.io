@@ -1,9 +1,9 @@
 ---
 title: CWL - Compute Crack
 date: '2026-01-26'
-tags: ['cyberwarfarelabs', 'cloud', 'SSRF', 'azure']
+tags: ['cyberwarfarelabs', 'cloud', 'azure', 'Command Injection']
 draft: false
-summary:  The challenge is a webapp that has a SSRF vulnerability, the goal is to exploit the vulnerability and extract the access token to authenticate then retrieve the Azure Subscription ID which is the flag 
+summary:  The challenge is a webapp that has a Command Injection vulnerability, the goal is to exploit the vulnerability by making an internal request to the Azure instance and extract the access token to authenticate then retrieve the Azure Subscription ID which is the flag 
 ---
 
 
@@ -12,13 +12,15 @@ summary:  The challenge is a webapp that has a SSRF vulnerability, the goal is t
 </div>
 
 
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/compute_crack/compute_crack2.png" alt="Description" />
+</div>
+
+
 <TOCInline toc={props.toc} asDisclosure />
 
 
-## Disclaimer
-
-Although this challenge is about SSRF, I was not sure if it was intended or not that the way solve this was to chain a Command Injection vulnerability
-
+---
 
 ## Recon
 
@@ -74,7 +76,7 @@ Scrolling down we can see the `subscriptionId` field and value
 ![Description](/static/images/cyberwarfare/cloud/compute_crack/8.png)
 
 
-## Disclaimer 2
+## Disclaimer
 
 
 I tried to solve it by using the PowerShell AzureAD Module and the `az` cli tool but I found out that it was impossible without an organization email. For the `az` cli tool I don't know why the access token I found on another endpoint was incorrect
