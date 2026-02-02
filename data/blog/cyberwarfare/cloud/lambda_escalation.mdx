@@ -1,0 +1,172 @@
+---
+title: CWL - Lamba Escalation
+date: '2026-02-01'
+tags: ['cyberwarfarelabs', 'cloud', 'AWS', 'AWSCLI', 'Lambda']
+draft: false
+summary:  The challenge provides Access Keys that are used to authenticate to the AWS instance and enumerate AWS IAM resources & Lambda function permissions. Leveraging those permissions, we can invoke a Lambda function to retrieve the hidden flag 
+---
+
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/lambda_escalation/lambda_escalation.png" alt="Description" />
+</div>
+
+
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/lambda_escalation/lambda_escalation2.png" alt="Description" />
+</div>
+
+
+
+<TOCInline toc={props.toc} asDisclosure />
+
+
+---
+
+
+## Starting Point
+
+At the start, we are provided the Access Key ID and Secret Access Key
+
+![Description](/static/images/cyberwarfare/cloud/lambda_escalation/1.png)
+
+
+We will authenticate to the AWS instance using `awscli`, leave the rest of the fields empty
+
+```bash
+aws configure
+```
+
+![Description](/static/images/cyberwarfare/cloud/lambda_escalation/2.png)
+
+
+Verify by making an authenticated API call
+
+```bash
+aws sts get-caller-identity
+```
+
+![Description](/static/images/cyberwarfare/cloud/lambda_escalation/3.png)
+
+We confirm that the current IAM user is 'developer1'
+
+
+
+
+## Enumerating IAM Permissions
+
+
+Using this [cheatsheet](https://cloud.hacktricks.wiki/en/pentesting-cloud/aws-security/aws-services/aws-iam-enum.html#enumeration), we discover the user could only list attached user policies
+
+
+```bash
+aws iam list-attached-user-policies --user-name developer1
+```
+
+![Description](/static/images/cyberwarfare/cloud/lambda_escalation/4.png)
+
+There are 2 available policies, let us look at both of them closely
+
+
+
+
+### ListUserPoliciesPolicy
+
+
+We can list more information about the policy using `get-policy` with the policy ARN
+
+
+>[!TIP]
+> Amazon Resource Name (ARN) is a unique identifier used in AWS to identify resources across all AWS services
+
+
+```bash
+aws iam get-policy --policy-arn arn:aws:iam::058264439561:policy/ListUserPoliciesPolicy
+```
+
+![Description](/static/images/cyberwarfare/cloud/lambda_escalation/5.png)
+
+
+We can also go more in detail of the policy by using `get-policy-version`, but we need to supply the version ID which based on the output above, is `v1`
+
+
+```bash
+aws iam get-policy-version --policy-arn arn:aws:iam::058264439561:policy/ListUserPoliciesPolicy --version-id v1
+```
+
+![Description](/static/images/cyberwarfare/cloud/lambda_escalation/6.png)
+
+According to the [docs](https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazons3.html), the user is
+allowed to list all available S3 buckets
+
+```bash
+aws s3 ls
+```
+
+![Description](/static/images/cyberwarfare/cloud/lambda_escalation/7.png)
+
+
+However attempting to list the contents of any buckets is denied, let us move to the next policy
+
+
+
+
+### LambdaInvokePolicy
+
+We can just reiterate the same process we did before with the appropriate policy name
+
+```bash
+aws iam get-policy --policy-arn arn:aws:iam::058264439561:policy/LambdaInvokePolicy 
+```
+
+![Description](/static/images/cyberwarfare/cloud/lambda_escalation/8.png)
+
+
+Same `v1` version ID
+
+```bash
+aws iam get-policy-version --policy-arn arn:aws:iam::058264439561:policy/LambdaInvokePolicy --version-id v1
+```
+
+![Description](/static/images/cyberwarfare/cloud/lambda_escalation/9.png)
+
+Given the name of the lab, we can observe that the policy allows us to use "Lambda" to call a function named `Bucket-mgmt-Function`
+
+
+>[!TIP]
+> Lambda is a compute service that enables the execution of code without the necessity for server provision or management
+
+
+We can use this command to call the function using `lambda`, we also need to supply the correct region which is `us-east-1`
+
+```bash
+aws lambda invoke --function-name Bucket-mgmgt-Function --region us-east-1 output.txt`
+```
+
+![Description](/static/images/cyberwarfare/cloud/lambda_escalation/10.png)
+
+
+Status 200 indicates the function is successfully called, check the output file
+
+![Description](/static/images/cyberwarfare/cloud/lambda_escalation/11.png)
+
+Cool, there's the flag
+
+
+
+---
+
+## Sources
+
+
+- https://cloud.hacktricks.wiki/en/pentesting-cloud/aws-security/aws-services/aws-iam-enum.html#enumeration
+- https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazons3.html
+- https://cloud.hacktricks.wiki/en/pentesting-cloud/aws-security/aws-services/aws-lambda-enum.html#aws---lambda-enum
+
+
+
+
+
+
+
+
+
