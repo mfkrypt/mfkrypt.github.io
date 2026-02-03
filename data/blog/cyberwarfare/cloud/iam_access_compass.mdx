@@ -1,0 +1,301 @@
+---
+title: CWL - IAM Access Compass
+date: '2026-02-04'
+tags: ['cyberwarfarelabs', 'cloud', 'GCP', 'gcloud-cli']
+draft: false
+summary:  The challenge provides JSON credentials that can be used to authenticate and enumerate GCP resources which includes IAM roles and service account emails that has admin permissions
+---
+
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/iam_access_compass/iam_access_compass.png" alt="Description" />
+</div>
+
+
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/iam_access_compass/iam_access_compass2.png" alt="Description" />
+</div>
+
+
+<TOCInline toc={props.toc} asDisclosure />
+
+
+
+---
+
+
+## Starting Point
+
+
+We are given the following credentials:
+
+```json
+{
+  "type": "service_account",
+  "project_id": "woven-acolyte-428406-v9",
+  "private_key_id": "2ad23de790543d04ef8e01bc70ae370d72a2099c",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCmxfpdNvAo2Kdo\nw7vVtpNR7slIt+iNZpjNE2bSXpBIvsSXMkX9fXnMN8Zdc1LYCflCMqiiQ69UsDqv\nZLDYrkTBnz2cshqJ9o4te+D5CAGgRLFl51xretVmsGP/N7INkB4iwd982xwFJLra\njvj/aC7BtP9p78QsI+6bFZ3q9uKWo+hhqH1171zm7bKMd0ETPTKcvNqLfdaVXOLf\nhr4h1t+OQgrQqQhWyIofeYkS33MNZhEsULn6N4MB0Z55PDSIq1rmzmP0k0WOXg86\nPp5HUKZdlsPSSefDyw6YziFdeWpy2OUW705p0dIlpj7vi01Kcq9JhCnZZWASR901\n1rEDtnFjAgMBAAECggEAHEgyvyAT9jlXmpKnBgUiUqC2DdjyXRhrDUwfAcn7mfqQ\nCDwEVoqy3wkOYMav4+c9GBbTNkFYOHpyWVAwFW7oRhWlMy+ZBJCFZ/08F79d1zoP\nA4MKz0dTbUi4jI17aoVoNui958SYqd6iuXHJlDasxzjUn7iDgiDN1AsEbtZTcswu\nwmQ29sGj2GfWwvggxLNfmbddQiV/h4nWVABMJS3f64IODWDE0KUbZZT9p1o0e5Mj\nMApPxsSNtH2/mdFlxTEv6ifPZpJSfqTAhQj3NiAYD+HDQGjEZ3Bl/qcVjtrvIJaa\njJ5qUJ+hVD+X4Q2bjdGf3meHiiie1HFa5elraaXDkQKBgQDhS6DAMEzthVLyBR6n\nSlp5KKw7kSptPUj9y7qnTLshQMNZOH+IBkHMhWmb3DeRzTI0RAfPypGA8tRvMrpw\nqYduF/hO7bWzquCmWnYdy/aTFeg/v/h9eKgXzJbXbdvCAAAOlf/jsC4EuI/Q7LlV\nzYUDZaWuXmepIIFP0Ae3bmk77wKBgQC9gJApXwzWnmAgbHfLeReyGnyJMu0OSi4E\nutNRiQDoDfe5fC4OuWzNqeaTPBhV8jfacEoGTw8rokfzcWtW6D1gCgo9yckjHm2g\nqtzngsjpINmznBtnneb/HKA6FwnrEvCJZ1hiaLMZHmHXE8j4MTYkxZ3CEFcEi2h/\nIixe0O69zQKBgEqRGGxj0CJRHUnjLekar+Un9BFnE47CWPU/R9D1kX4JDF7sVzFz\nOLXzdifS9EV6j+JCnf9FQXFXbb48IP8G7T8gCdw9ywTjSqVkjXGBP2QhPRRUem80\nzxXJbidxQenszBgHx4DZn/GKEHeK0jC27A5ax0J2FoMgsgvzg4pPrd7bAoGAVflO\n7kYeR/yAdhVf4CNnGbmkiIZfQF1tNV4hY1t52s4Ddtac+rcrYr9TSbc4/z0uE99f\n5i7WHiC47fymCz7AIaNMdC3pIBK8/+ik4i/WwNXTjwYi9MaRt2ogU1qCeHEWSfBm\nC/eeUaYUE4T5Z4jEHLi/Uv0gzYIF/a/eW4IE3n0CgYEAxfvU5uMPO77PGmOUkDVl\n+oSRaGRlfHlg+WAyoroV26yFBUciG6sSWhvXO0EPbnyB3M9VK7zQQ24IuDXPwWyx\n42Rc36bzqxzrMpr4AJfRAKSvDshqh980AMJO9TZfqdqDOSIcp3P2ExlbMDQOmSbs\nqj35aC9gskGIos+9qJaB/E4=\n-----END PRIVATE KEY-----",
+  "client_email": "testing-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com",
+  "client_id": "107049213931824588716",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/testing-service-account%40woven-acolyte-428406-v9.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
+```
+
+
+We can authenticate to the instance by first exporting the following variable to the `env` and supplying the credential file path:
+
+
+```bash
+export CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE="/home/mfkrypt/Downloads/GCPChallengeCredentials.json"
+```
+
+Then using `gcloud` CLI, we can try to list service accounts by supplying the `project_id` value
+
+```bash
+gcloud iam service-accounts list --project woven-acolyte-428406-v9
+```
+
+![Description](/static/images/cyberwarfare/cloud/iam_access_compass/1.png)
+
+
+We will only be narrowing our enumeration to thse 2 service accounts since the lab task is scoped to them:
+
+1. testing-service-account
+2. devops-service-account
+
+
+
+
+## 1'st Flag
+
+### Roles enumeration
+
+
+Now, we will enumerate all available roles
+
+```bash
+gcloud iam roles list --project woven-acolyte-428406-v9
+```
+
+```bash
+---
+description: Editor role without permission to delete Cloud Functions
+etag: BwYkvpeZAo4=
+name: projects/woven-acolyte-428406-v9/roles/customEditorNoDelete
+stage: GA
+title: Custom Editor without Delete
+---
+description: A custom role with viewer permissions
+etag: BwYmOiN1kGs=
+name: projects/woven-acolyte-428406-v9/roles/customViewerRole1
+stage: GA
+title: Custom Viewer Role1
+---
+description: A custom role with viewer permissions
+etag: BwYmOiN1Miw=
+name: projects/woven-acolyte-428406-v9/roles/customViewerRole2
+stage: GA
+title: Custom Viewer Role2
+---
+description: A custom role 1 with viewer permissions
+etag: BwYmOiN5eOo=
+name: projects/woven-acolyte-428406-v9/roles/customViewerRole3
+stage: GA
+title: Custom Viewer Role 3
+---
+etag: BwYh50G1wXU=
+name: projects/woven-acolyte-428406-v9/roles/h0o5me6c
+stage: GA
+title: SA User
+---
+description: 'Created on: 2025-06-24'
+etag: BwY4T8oHNCI=
+name: projects/woven-acolyte-428406-v9/roles/log_reviewer_sa_viewer_role
+title: log_reviewer_sa_viewer_role
+---
+description: 'Created on: 2025-06-25'
+etag: BwY4X4oSmdk=
+name: projects/woven-acolyte-428406-v9/roles/secret_mgmt_sa_viewer_role
+title: secret-mgmt-sa_viewer_role
+---
+description: 'Created on: 2025-07-03'
+etag: BwY5AZDEGbY=
+name: projects/woven-acolyte-428406-v9/roles/service_mgmt_sa
+title: service-mgmt-sa-role
+```
+
+
+Nothing about our target, testing-service-account. We can go deeper by enumerating IAM policies
+
+
+### IAM Policy Enumeration (Project Scoped)
+
+
+```bash
+gcloud projects get-iam-policy woven-acolyte-428406-v9
+```
+
+```bash
+bindings:
+- condition:
+    expression: resource.name == " secret-bucket-woven-acolyte-428406-v9"
+    title: Buckey-Condition
+  members:
+  - serviceAccount:testing-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com
+  role: projects/woven-acolyte-428406-v9/roles/customViewerRole1
+- members:
+  - serviceAccount:prod-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com
+  role: projects/woven-acolyte-428406-v9/roles/customViewerRole2
+- members:
+  - serviceAccount:devops-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com
+  role: projects/woven-acolyte-428406-v9/roles/customViewerRole3
+- members:
+  - serviceAccount:svc-mgmt-sa@woven-acolyte-428406-v9.iam.gserviceaccount.com
+  role: projects/woven-acolyte-428406-v9/roles/h0o5me6c
+- members:
+  - serviceAccount:log-reviewer-sa@woven-acolyte-428406-v9.iam.gserviceaccount.com
+  role: projects/woven-acolyte-428406-v9/roles/log_reviewer_sa_viewer_role
+- members:
+  - serviceAccount:secret-mgmt-sa@woven-acolyte-428406-v9.iam.gserviceaccount.com
+  role: projects/woven-acolyte-428406-v9/roles/secret_mgmt_sa_viewer_role
+- members:
+  - serviceAccount:service-mgmt-sa@woven-acolyte-428406-v9.iam.gserviceaccount.com
+  role: projects/woven-acolyte-428406-v9/roles/service_mgmt_sa
+- members:
+  - serviceAccount:129668539536-compute@developer.gserviceaccount.com
+  role: roles/artifactregistry.createOnPushWriter
+- members:
+  - serviceAccount:service-129668539536@gcp-sa-artifactregistry.iam.gserviceaccount.com
+  role: roles/artifactregistry.serviceAgent
+- members:
+  - serviceAccount:129668539536-compute@developer.gserviceaccount.com
+  - serviceAccount:129668539536@cloudbuild.gserviceaccount.com
+  - serviceAccount:gcp-ci-cd-01-cloudbuild@woven-acolyte-428406-v9.iam.gserviceaccount.com
+  role: roles/cloudbuild.builds.builder
+- members:
+  - serviceAccount:service-129668539536@gcp-sa-cloudbuild.iam.gserviceaccount.com
+  role: roles/cloudbuild.serviceAgent
+- members:
+  - serviceAccount:service-129668539536@gcf-admin-robot.iam.gserviceaccount.com
+  role: roles/cloudfunctions.serviceAgent
+- members:
+  - serviceAccount:service-129668539536@gcp-sa-cloudkms.iam.gserviceaccount.com
+  role: roles/cloudkms.serviceAgent
+- members:
+  - serviceAccount:service-129668539536@compute-system.iam.gserviceaccount.com
+  role: roles/compute.serviceAgent
+- members:
+  - serviceAccount:service-129668539536@containerregistry.iam.gserviceaccount.com
+  role: roles/containerregistry.ServiceAgent
+- members:
+  - serviceAccount:devops-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com
+  role: roles/editor
+- members:
+  - serviceAccount:service-129668539536@gcp-sa-eventarc.iam.gserviceaccount.com
+  role: roles/eventarc.serviceAgent
+- members:
+  - serviceAccount:prod-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com
+  role: roles/iam.roleAdmin
+- members:
+  - serviceAccount:testing-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com
+  role: roles/iam.roleViewer
+- members:
+  - serviceAccount:testing-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com
+  role: roles/iam.securityReviewer
+- members:
+  - serviceAccount:hd-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com
+  role: roles/iam.serviceAccountViewer
+- members:
+  - serviceAccount:129668539536-compute@developer.gserviceaccount.com
+  role: roles/logging.logWriter
+- members:
+  - serviceAccount:resource-mgmt@woven-acolyte-428406-v9.iam.gserviceaccount.com
+  - user:admin@secure-corp.org
+  - user:parth.agrawal@cyberwarfare.live
+  - user:redops@secure-corp.org
+  role: roles/owner
+- members:
+  - serviceAccount:service-129668539536@gcp-sa-pubsub.iam.gserviceaccount.com
+  role: roles/pubsub.serviceAgent
+- members:
+  - serviceAccount:gcp-ci-cd-01-cloudrun@woven-acolyte-428406-v9.iam.gserviceaccount.com
+  - serviceAccount:service-129668539536@serverless-robot-prod.iam.gserviceaccount.com
+  role: roles/run.serviceAgent
+- condition:
+    expression: request.time < timestamp("2024-10-04T15:04:36.922Z")
+    title: cloudbuild-connection-setup
+  members:
+  - serviceAccount:service-129668539536@gcp-sa-cloudbuild.iam.gserviceaccount.com
+  role: roles/secretmanager.admin
+- members:
+  - serviceAccount:129668539536-compute@developer.gserviceaccount.com
+  role: roles/storage.objectAdmin
+- members:
+  - serviceAccount:hd-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com
+  - serviceAccount:testing-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com
+  role: roles/viewer
+etag: BwZDON_Tc-M=
+version: 3
+```
+
+
+From the output, we discover 3 roles that belong to testing-service-account
+
+1. customViewerRole1
+2. iam.roleViewer
+3. securityReviewer
+
+
+I just assumed the first flag would be the custom role, `customViewerRole1` as it stood out the most
+
+
+
+## 2'nd Flag
+
+
+### IAM Policy enumeration (SA Scoped)
+
+Now, we will also enumerate IAM policies of the devops-service-account
+
+```bash
+gcloud iam service-accounts get-iam-policy devops-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com
+```
+
+
+![Description](/static/images/cyberwarfare/cloud/iam_access_compass/2.png)
+
+
+Observe that we have 2 admin rols that belong to a single service account which also reveals the email:
+
+```
+prod-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com
+```
+
+
+## Combined Flag
+
+
+Plaintext flag before Base64 encoding
+
+```
+customViewerRole1+prod-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com
+```
+
+
+Base64 flag
+
+```
+CWL{Y3VzdG9tVmlld2VyUm9sZTErcHJvZC1zZXJ2aWNlLWFjY291bnRAd292ZW4tYWNvbHl0ZS00Mjg0MDYtdjkuaWFtLmdzZXJ2aWNlYWNjb3VudC5jb20=}
+```
+
+
+---
+
+## Sources
+
+- https://serverfault.com/questions/848580/how-to-use-google-application-credentials-with-gcloud-on-a-server
+- https://cloud.hacktricks.wiki/en/pentesting-cloud/gcp-security/gcp-services/gcp-iam-and-org-policies-enum.html#gcp---iam-principals--org-policies-enum
+
