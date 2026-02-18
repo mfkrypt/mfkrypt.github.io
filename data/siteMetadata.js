@@ -6,10 +6,10 @@ const siteMetadata = {
   description: 'Recent Posts',
   language: 'en-us',
   theme: 'dark', // system, dark or light
-  siteUrl: 'https://tailwind-nextjs-starter-blog.vercel.app',
-  siteRepo: 'https://github.com/timlrx/tailwind-nextjs-starter-blog',
+  siteUrl: 'https://mfkrypt.github.io',
+  siteRepo: 'https://github.com/mfkrypt/mfkrypt.github.io',
   siteLogo: `${process.env.BASE_PATH || ''}/static/images/logo.png`,
-  socialBanner: `${process.env.BASE_PATH || ''}/static/images/twitter-card.png`,
+  socialBanner: `${process.env.BASE_PATH || ''}/static/images/dante.png`,
   // mastodon: 'https://mastodon.social/@mastodonuser',
   email: 'ammarsuper21@gmail.com',
   github: 'https://github.com/mfkrypt',
