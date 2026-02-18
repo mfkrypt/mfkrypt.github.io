@@ -4,6 +4,7 @@ date: '2026-02-18'
 tags: ['machine', 'linux', 'wing-ftp', 'tarfile', 'path-traversal', 'symlink-escape', 'sudoers']
 draft: false
 summary: The target runs an outdated version of Wing FTP Server which is vulnerable to CVE-2025-47812 that allows for initial foothold. Gathering credentials by cracking a salted hash in the credential file that leads to the user flag. Then, acquired root by exploiting a sudo misconfiguration that allowed running a vulnerable Python version with a custom program that uses the tarfile module of which allows for path traversal, symlink escape & write access to system files (CVE-2025-4517 & CVE-2025-4138) 
+images: /static/images/htb/linux/wingdata/wingdata.png
 ---
 
 
