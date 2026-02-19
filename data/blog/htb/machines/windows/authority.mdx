@@ -4,6 +4,7 @@ date: '2025-07-29'
 tags: ['machine', 'windows', 'Active Directory', 'ansible2john', 'pwm', 'pass-back-attack', 'Certificate Service DCOM Access', 'ESC1', 'ldap-shell', 'Schannel', 'S4U2Self', 'S4U2Proxy']
 draft: false
 summary: SMB enumeration reveals ansible configuration files for a running webserver that is hosting an LDAPS Server. In those files, contains an ansible vault that has a crackable password revealing credentials to the LDAP Server and executing a Pass-Back Attack revealing more sensitive credentials that are used for initial foothold. Later enumerating ADCS reveals ESC1 for Computer Accounts group which led to creating a computer account and spawning an LDAP-shell and adding the low-privileged user to the Administrators group gaining DA access
+images: /static/images/htb/windows/authority/authority.png
 ---
 
 ![Description](/static/images/htb/windows/authority/authority.png)

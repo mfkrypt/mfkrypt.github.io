@@ -9,7 +9,7 @@ const siteMetadata = {
   siteUrl: 'https://mfkrypt.github.io',
   siteRepo: 'https://github.com/mfkrypt/mfkrypt.github.io',
   siteLogo: `${process.env.BASE_PATH || ''}/static/images/logo.png`,
-  socialBanner: `${process.env.BASE_PATH || ''}/static/images/dante.png`,
+  socialBanner: `${process.env.BASE_PATH || ''}/static/images/shiki.jpg`,
   // mastodon: 'https://mastodon.social/@mastodonuser',
   email: 'ammarsuper21@gmail.com',
   github: 'https://github.com/mfkrypt',

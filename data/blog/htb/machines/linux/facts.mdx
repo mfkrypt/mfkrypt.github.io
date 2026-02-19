@@ -4,6 +4,7 @@ date: '2026-02-06'
 tags: ['machine', 'linux', 'LFI', 'path-traversal', 'camaleon-cms', 'ssh2john', 'facter']
 draft: false
 summary: Discovered a running webpage that allowed for registration. After logging in, it was revealed an outdated version of Camaleon CMS instance which was vulnerable to CVE-2024-46987 (Authenticated Arbitrary File Read). Leveraging that vulnerability to grab SSH keys on getting initial access. Finally, gained root access by exploiting a sudo misconfiguration using the facter command/binary.
+images: /static/images/htb/linux/facts/facts.png
 ---
 
 ![Description](/static/images/htb/linux/facts/facts.png)
