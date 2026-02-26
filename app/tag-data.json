@@ -1,6 +1,10 @@
 {
   "machine": 16,
   "linux": 5,
+  "pbkdf2": 1,
+  "ssti": 1,
+  "port-forwarding": 2,
+  "regex": 1,
   "cyberwarfarelabs": 10,
   "cloud": 10,
   "azure": 3,
@@ -72,7 +76,6 @@
   "mosh-server": 1,
   "sqlpad": 1,
   "docker-jail": 1,
-  "port-forwarding": 1,
   "chrome-pentest": 1,
   "froxlor": 1
 }

