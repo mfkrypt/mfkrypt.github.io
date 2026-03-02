@@ -1,0 +1,176 @@
+---
+title: CWL - Who AM IAM?
+date: '2026-03-02'
+tags: ['cyberwarfarelabs', 'cloud', 'aws', 'awscli']
+draft: false
+summary:  The challenge provides Access Keys that are used to authenticate to the AWS instance and enumerate AWS IAM resources which includes users, policies, and roles
+images: /static/images/cyberwarfare/cloud/whoamiam/whoamiam.png
+---
+
+
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/whoamiam/whoamiam.png" alt="Description" />
+</div>
+
+
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/whoamiam/whoamiam3.png" alt="Description" />
+</div>
+
+
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/whoamiam/whoamiam2.png" alt="Description" />
+</div>
+
+
+<TOCInline toc={props.toc} asDisclosure />
+
+
+
+---
+
+
+## Recon
+
+
+We are given the following credentials:
+
+![Description](/static/images/cyberwarfare/cloud/whoamiam/1.png)
+
+
+Proceed to authenticate. Just provide any random region and we can leave out the output format field
+
+```bash
+aws configure
+```
+
+![Description](/static/images/cyberwarfare/cloud/whoamiam/2.png)
+
+
+Verify the authentication by making an API call
+
+```bash
+aws sts get-caller-identity
+```
+
+![Description](/static/images/cyberwarfare/cloud/whoamiam/3.png)
+
+
+Our current user is `frontend-developer`
+
+
+
+
+
+## 1'st Flag
+
+
+### Roles Enumeration
+
+
+The first task is to find the role that is attached to the `backend-developer` user. Originally, the `awscli` tool does not provide the
+functionality to search for specific users for attached roles. Instead, the command that comes close to this lists all the roles available
+which is a lot of information to go through. So, we improvise by using this command which lists all roles and filters (via `jq` tool) for role name and associated users
+
+
+```bash
+aws iam list-roles --output=json | jq '.Roles[] |  {role: .RoleName, user: .AssumeRolePolicyDocument.Statement[].Principal.AWS} | select(.user != null)'
+```
+
+
+![Description](/static/images/cyberwarfare/cloud/whoamiam/4.png)
+
+
+
+
+
+## 2'nd Flag
+
+### Policy Enumeration
+
+
+The second task is to acquire the Version ID of `BackendAssumeManagerRolePolicy` policy. To do this we need to retrieve the ARN
+of the said policy.
+
+
+```bash
+aws iam list-attached-user-policies --user-name backend-developer
+```
+
+
+```json
+{
+    "AttachedPolicies": [
+        {
+            "PolicyName": "BackendS3ReadOnlyPolicy",
+            "PolicyArn": "arn:aws:iam::058264439561:policy/BackendS3ReadOnlyPolicy"
+        },
+        {
+            "PolicyName": "BackendAssumeManagerRolePolicy",
+            "PolicyArn": "arn:aws:iam::058264439561:policy/BackendAssumeManagerRolePolicy"
+        }
+    ]
+}
+```
+
+
+Now retrieve the Version ID
+
+
+```bash
+aws iam get-policy --policy-arn arn:aws:iam::058264439561:policy/BackendAssumeManagerRolePolicy
+```
+
+![Description](/static/images/cyberwarfare/cloud/whoamiam/5.png)
+
+
+
+
+
+## 3'rd Flag
+
+### Inline Policy Enumeration
+
+
+The third task is to identify the name of the Inline Policy for the discovered role, `ManagerRole`. Inline policies differ 
+from normal policies (managed policy) by being embedded into a single IAM identity such as a user or a role.
+
+
+``` bash
+aws iam list-role-policies --role-name ManagerRole
+```
+
+
+```json
+{
+    "PolicyNames": [
+        "ManagerRole-inline-policy"
+    ]
+}
+```
+
+
+
+## Combined Flag
+
+
+Plaintext flag before Base64 encoding
+
+```bash
+ManagerRole+v1+ManagerRole-inline-policy
+```
+
+Base64 flag
+
+```bash
+CWL{TWFuYWdlclJvbGUrdjErTWFuYWdlclJvbGUtaW5saW5lLXBvbGljeQ==}
+```
+
+
+
+---
+
+## Sources
+
+- https://serverfault.com/questions/962397/how-to-show-an-iam-users-roles-with-aws-iam
+- https://cloud.hacktricks.wiki/en/pentesting-cloud/aws-security/aws-services/aws-iam-enum.html
