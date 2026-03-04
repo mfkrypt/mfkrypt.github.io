@@ -46,7 +46,7 @@ export default function ZoomNextImage({ className = '', style, src, alt, ...rest
     <>
       <button
         type="button"
-        className="inline-block cursor-zoom-in bg-transparent p-0"
+        className="block w-full cursor-zoom-in bg-transparent p-0"
         aria-label={safeAlt ? `Zoom image: ${safeAlt}` : 'Zoom image'}
         onClick={() => setOpen(true)}
       >
@@ -55,7 +55,7 @@ export default function ZoomNextImage({ className = '', style, src, alt, ...rest
           src={resolvedSrc}
           alt={safeAlt}
           style={style}
-          className={imageClassName}
+          className={imageClassName + ' block'}
         />
       </button>
 

@@ -2,7 +2,7 @@
 const siteMetadata = {
   title: "mfkrypt's blog",
   author: 'mfkrypt',
-  headerTitle: "mfkrypt's void",
+  headerTitle: "The Void",
   description: 'Recent Posts',
   language: 'en-us',
   theme: 'dark', // system, dark or light
