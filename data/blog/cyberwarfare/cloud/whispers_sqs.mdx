@@ -1,0 +1,222 @@
+---
+title: CWL - Whispers from SQS
+date: '2026-03-17'
+tags: ['cyberwarfarelabs', 'cloud', 'aws', 'awscli', 'sqs']
+draft: false
+summary:   The challenge provides Access Keys that allows for IAM enumeration that leads to a policy that has permissions for Amazon SQS. An interesting permission allows us to read messages from the queue URL which reveals the flag
+images: /static/images/cyberwarfare/cloud/whispers_sqs/whispers_sqs.png
+---
+
+
+
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/whispers_sqs/whispers_sqs.png" alt="Description" />
+</div>
+
+
+<div className="flex justify-center">
+	<img src="/static/images/cyberwarfare/cloud/whispers_sqs/whispers_sqs2.png" alt="Description" />
+</div>
+
+
+<TOCInline toc={props.toc} asDisclosure />
+
+
+
+---
+
+
+## Recon
+
+
+We are given the following credentials:
+
+
+![Description](/static/images/cyberwarfare/cloud/whispers_sqs/1.png)
+
+
+Proceed to authenticate. Just provide any random region and we can leave out the output format field
+
+```bash
+aws configure
+```
+
+![Description](/static/images/cyberwarfare/cloud/whispers_sqs/2.png)
+
+
+Verify the authentication by making an API call
+
+```bash
+aws sts get-caller-identity
+```
+
+![Description](/static/images/cyberwarfare/cloud/whispers_sqs/3.png)
+
+
+Our current user is `queue-inspector`
+
+
+
+
+
+
+## IAM Enumeration
+
+
+### Policies
+
+
+Let's try to find policies
+
+
+```bash
+aws iam list-user-policies --user-name queue-inspector
+```
+
+```json
+{
+    "PolicyNames": [
+        "queue-inspector-user-policy"
+    ]
+}
+```
+
+
+Retrive the contents of the policy
+
+
+```bash
+aws iam get-user-policy --user-name queue-inspector --policy-name queue-inspector-user-policy
+```
+
+```json
+{
+    "UserName": "queue-inspector",
+    "PolicyName": "queue-inspector-user-policy",
+    "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "Statement1",
+                "Effect": "Allow",
+                "Action": [
+                    "sqs:ListQueues"
+                ],
+                "Resource": "*"
+            },
+            {
+                "Sid": "Statement2",
+                "Effect": "Allow",
+                "Action": [
+                    "sqs:GetQueueUrl",
+                    "sqs:GetQueueAttributes",
+                    "sqs:ReceiveMessage"
+                ],
+                "Resource": "arn:aws:sqs:us-east-1:058264439561:secops-messanger-queue"
+            },
+            {
+                "Sid": "Statement3",
+                "Effect": "Allow",
+                "Action": [
+                    "iam:ListUserPolicies",
+                    "iam:GetUserPolicy"
+                ],
+                "Resource": "arn:aws:iam::058264439561:user/queue-inspector"
+            }
+        ]
+    }
+}
+```
+
+
+We see a few permissions related to SQS. Amazon Simple Queue Service (SQS) is a service that allows point-to-point communication, ensuring that messages are processed by a single consumer. It offers at-least-once delivery, supports standard and FIFO queues, and allows message retention for retries and delayed processing.
+
+
+
+
+
+
+
+
+## SQS Enumeration
+
+
+
+Based, on the permissions we can get the list of queues and the queue attributes. Apart from that, we notice that the user
+has the `sqs:ReceiveMessage` permission. We can attempt to use this to receive the messages from the current queue
+
+
+```bash
+aws sqs list-queues
+```
+
+```json
+{
+    "QueueUrls": [
+        "https://sqs.us-east-1.amazonaws.com/058264439561/secops-messanger-queue"
+    ]
+}
+```
+
+
+Let's get the queue attributes of this url queue
+
+
+```bash
+aws sqs get-queue-attributes --queue-url https://sqs.us-east-1.amazonaws.com/058264439561/secops-messanger-queue --attribute-names All --region us-east-1
+```
+
+```json
+{
+    "Attributes": {
+        "QueueArn": "arn:aws:sqs:us-east-1:058264439561:secops-messanger-queue",
+        "ApproximateNumberOfMessages": "14",
+        "ApproximateNumberOfMessagesNotVisible": "0",
+        "ApproximateNumberOfMessagesDelayed": "0",
+        "CreatedTimestamp": "1752125969",
+        "LastModifiedTimestamp": "1752131927",
+        "VisibilityTimeout": "30",
+        "MaximumMessageSize": "262144",
+        "MessageRetentionPeriod": "1209600",
+        "DelaySeconds": "0",
+        "Policy": "{\"Version\":\"2012-10-17\",\"Id\":\"__default_policy_ID\",\"Statement\":[{\"Sid\":\"__owner_statement\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::058264439561:root\"},\"Action\":\"SQS:*\",\"Resource\":\"arn:aws:sqs:us-east-1:058264439561:secops-messanger-queue\"}]}",
+        "ReceiveMessageWaitTimeSeconds": "0",
+        "SqsManagedSseEnabled": "false"
+    }
+}
+```
+
+Observe the `ApproximateNumberOfMessages` has the value of 14. We'll try to read these messages and fid the flag. However, SQS works with short polling by default, which only queries a subset of servers and often returns fewer messages than requested when queue volumes are low. 
+Meaning the same message won't return everytime (I still have yet to understand this mechanism). So, if we spam this command below:
+
+```bash
+aws sqs receive-message --queue-url https://sqs.us-east-1.amazonaws.com/058264439561/secops-messanger-queue --region us-east-1 --max-number-of-messages 10
+```
+
+We would be more likely see all of the messages just not at the same time. Like the message below, we can observe a string which appears to be encoded in Base64
+
+
+
+![Description](/static/images/cyberwarfare/cloud/whispers_sqs/4.png)
+
+
+```bash
+❯ echo 'Q1dMe1dlc3NnYWVfUmV0cmlldmViX1N1KSllc3NmdWxseX0=' | base64 -d
+
+CWL{Wessgae_Retrieveb_Su))essfully}
+```
+
+
+And there's our flag
+
+
+
+---
+
+
+## Sources
+
+
+- https://cloud.hacktricks.wiki/en/pentesting-cloud/aws-security/aws-services/aws-sqs-and-sns-enum.html#aws---sqs-enum
+- https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_ReceiveMessage.html
+
