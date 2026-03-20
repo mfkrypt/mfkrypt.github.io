@@ -88,9 +88,6 @@ Let's get some more details on the available policies
 
 
 
-## S3 Enumeration
-
-
 ```
 aws iam get-user-policy --user-name Soc_Ananlyst_L4 --policy-name S3_Access_Policy
 ```
@@ -115,6 +112,9 @@ aws iam get-user-policy --user-name Soc_Ananlyst_L4 --policy-name S3_Access_Poli
     }
 }
 ```
+
+
+## S3 Enumeration
 
 
 We have can list down objects from the `escalation-lambda-bucket` bucket but not able to download them based on the absence of 
