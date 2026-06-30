@@ -151,6 +151,7 @@ export default function ListLayoutWithTags({
                           </dd>
                         </dl>
                       </div>
+
                     </article>
                   </li>
                 )

@@ -29,8 +29,8 @@ export default function EventsPage() {
           {EventsData.map((event) => (
             <section key={event.slug} id={event.slug} className="scroll-mt-24">
               {/* Event header */}
-              <div className="border-primary-500 mb-6 border-l-2 pl-4">
-                <p className="text-primary-500 mb-1 text-sm font-medium">
+              <div className="mb-6 border-l-2 border-primary-500 pl-4">
+                <p className="mb-1 text-sm font-medium text-primary-500">
                   {formatDate(event.date)}
                   {event.location && (
                     <span className="text-gray-400 dark:text-gray-500">
