@@ -7,6 +7,11 @@ export const metadata = genPageMetadata({
   description: 'Photos from events I have participated in.',
 })
 
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr + 'T00:00:00')
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+}
+
 export default function EventsPage() {
   return (
     <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -19,48 +24,52 @@ export default function EventsPage() {
         </p>
       </div>
 
-      <div className="container py-12">
-        <div className="space-y-14">
+      <div className="py-12">
+        <div className="space-y-16">
           {EventsData.map((event) => (
             <section key={event.slug} id={event.slug} className="scroll-mt-24">
-              <div className="space-y-2">
-                <h2 className="text-2xl leading-8 font-bold tracking-tight text-gray-900 dark:text-gray-100">
+              {/* Event header */}
+              <div className="mb-6 border-l-2 border-primary-500 pl-4">
+                <p className="mb-1 text-sm font-medium text-primary-500">
+                  {formatDate(event.date)}
+                  {event.location && (
+                    <span className="text-gray-400 dark:text-gray-500">
+                      {' '}
+                      &middot; {event.location}
+                    </span>
+                  )}
+                </p>
+                <h2 className="text-xl font-bold tracking-tight text-gray-900 md:text-2xl dark:text-gray-100">
                   {event.title}
                 </h2>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
-                  <span>{event.date}</span>
-                  {event.location && (
-                    <>
-                      <span aria-hidden="true">•</span>
-                      <span>{event.location}</span>
-                    </>
-                  )}
-                </div>
                 {event.description && (
-                  <p className="max-w-3xl text-gray-600 dark:text-gray-400">{event.description}</p>
+                  <p className="mt-2 leading-relaxed text-gray-600 dark:text-gray-400">
+                    {event.description}
+                  </p>
                 )}
               </div>
 
-              <div className="mt-6 grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {/* Photo grid — 2 cols on sm+, masonry-style with portrait spanning 2 rows */}
+              <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
                 {event.photos.map((photo) => (
                   <div
                     key={photo.src}
-                    className={`group overflow-hidden rounded-xl border border-gray-200 bg-white p-2 shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-900 ${
-                      photo.wide ? 'sm:col-span-2 lg:col-span-1' : ''
+                    className={`group overflow-hidden rounded-xl border border-gray-200/50 shadow-sm transition-shadow hover:shadow-lg dark:border-gray-700/40 ${
+                      photo.portrait ? 'row-span-2' : ''
                     }`}
                   >
-                    <div className="relative">
+                    <div
+                      className={`overflow-hidden ${
+                        photo.portrait ? 'aspect-[3/4]' : 'aspect-[4/3]'
+                      }`}
+                    >
                       <ZoomNextImage
                         src={photo.src}
                         alt={photo.alt ?? ''}
-                        width={1600}
-                        height={1200}
-                        sizes={
-                          photo.wide
-                            ? '(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 66vw'
-                            : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw'
-                        }
-                        className="h-auto w-full rounded-lg object-cover transition-transform duration-200 group-hover:scale-[1.01]"
+                        width={1200}
+                        height={photo.portrait ? 1600 : 900}
+                        sizes="(max-width: 640px) 50vw, (max-width: 1280px) 384px, 320px"
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                       />
                     </div>
                   </div>

@@ -23,12 +23,10 @@ interface ListLayoutProps {
 
 function Pagination({ totalPages, currentPage }: PaginationProps) {
   const pathname = usePathname()
-  const segments = pathname.split('/')
-  const lastSegment = segments[segments.length - 1]
   const basePath = pathname
-    .replace(/^\//, '') // Remove leading slash
-    .replace(/\/page\/\d+\/?$/, '') // Remove any trailing /page
-    .replace(/\/$/, '') // Remove trailing slash
+    .replace(/^\//, '')
+    .replace(/\/page\/\d+\/?$/, '')
+    .replace(/\/$/, '')
   const prevPage = currentPage - 1 > 0
   const nextPage = currentPage + 1 <= totalPages
 
@@ -124,35 +122,36 @@ export default function ListLayoutWithTags({
             </div>
           </div>
           <div>
-            <ul>
+            <ul className="divide-y divide-gray-200 dark:divide-gray-800">
               {displayPosts.map((post) => {
                 const { path, date, title, summary, tags } = post
                 return (
-                  <li key={path} className="py-5">
-                    <article className="flex flex-col space-y-2 xl:space-y-0">
-                      <dl>
-                        <dt className="sr-only">Published on</dt>
-                        <dd className="text-base leading-6 font-medium text-gray-500 dark:text-gray-400">
-                          <time dateTime={date} suppressHydrationWarning>
-                            {formatDate(date, siteMetadata.locale)}
-                          </time>
-                        </dd>
-                      </dl>
-                      <div className="space-y-3">
+                  <li key={path} className="py-8">
+                    <article>
+                      <div className="space-y-2">
                         <div>
-                          <h2 className="text-2xl leading-8 font-bold tracking-tight">
+                          <h2 className="text-xl leading-8 font-bold tracking-tight md:text-2xl">
                             <Link href={`/${path}`} className="text-gray-900 dark:text-gray-100">
                               {title}
                             </Link>
                           </h2>
-                          <div className="flex flex-wrap">
+                          <div className="mt-1 flex flex-wrap gap-1.5">
                             {tags?.map((tag) => <Tag key={tag} text={tag} />)}
                           </div>
                         </div>
                         <div className="prose max-w-none text-gray-500 dark:text-gray-400">
                           {summary}
                         </div>
+                        <dl>
+                          <dt className="sr-only">Published on</dt>
+                          <dd className="text-xs text-gray-400 dark:text-gray-500">
+                            <time dateTime={date} suppressHydrationWarning>
+                              {formatDate(date, siteMetadata.locale)}
+                            </time>
+                          </dd>
+                        </dl>
                       </div>
+
                     </article>
                   </li>
                 )

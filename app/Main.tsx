@@ -3,6 +3,7 @@ import Tag from '@/components/Tag'
 import siteMetadata from '@/data/siteMetadata'
 import { formatDate } from 'pliny/utils/formatDate'
 import NewsletterForm from 'pliny/ui/NewsletterForm'
+import Image from 'next/image'
 
 const MAX_DISPLAY = 5
 
@@ -21,7 +22,13 @@ export default function Home({ posts }) {
         <ul className="divide-y divide-gray-200 dark:divide-gray-700">
           {!posts.length && 'No posts found.'}
           {posts.slice(0, MAX_DISPLAY).map((post) => {
-            const { slug, date, title, summary, tags } = post
+            const { slug, date, title, summary, tags, images } = post
+            const thumbnail =
+              typeof images === 'string'
+                ? images
+                : Array.isArray(images) && images.length > 0
+                  ? images[0]
+                  : null
             return (
               <li key={slug} className="py-12">
                 <article>
@@ -33,25 +40,44 @@ export default function Home({ posts }) {
                       </dd>
                     </dl>
                     <div className="space-y-5 xl:col-span-3">
-                      <div className="space-y-6">
-                        <div>
-                          <h2 className="text-2xl leading-8 font-bold tracking-tight">
-                            <Link
-                              href={`/blog/${slug}`}
-                              className="text-gray-900 dark:text-gray-100"
-                            >
-                              {title}
-                            </Link>
-                          </h2>
-                          <div className="flex flex-wrap">
-                            {tags.map((tag) => (
-                              <Tag key={tag} text={tag} />
-                            ))}
+                      <div className="flex gap-5">
+                        <div className="flex-1 space-y-3">
+                          <div>
+                            <h2 className="text-2xl leading-8 font-bold tracking-tight">
+                              <Link
+                                href={`/blog/${slug}`}
+                                className="text-gray-900 dark:text-gray-100"
+                              >
+                                {title}
+                              </Link>
+                            </h2>
+                            <div className="mt-1 flex flex-wrap gap-1.5">
+                              {tags.map((tag) => (
+                                <Tag key={tag} text={tag} />
+                              ))}
+                            </div>
+                          </div>
+                          <div className="prose max-w-none text-gray-500 dark:text-gray-400">
+                            {summary}
                           </div>
                         </div>
-                        <div className="prose max-w-none text-gray-500 dark:text-gray-400">
-                          {summary}
-                        </div>
+                        {thumbnail && (
+                          <Link
+                            href={`/blog/${slug}`}
+                            className="hidden flex-shrink-0 sm:block"
+                            aria-label={`Read "${title}"`}
+                          >
+                            <div className="relative h-32 w-32 overflow-hidden rounded-lg border border-gray-200/50 dark:border-gray-700/50">
+                              <Image
+                                src={thumbnail}
+                                alt=""
+                                fill
+                                className="object-cover transition-transform duration-200 hover:scale-105"
+                                sizes="128px"
+                              />
+                            </div>
+                          </Link>
+                        )}
                       </div>
                       <div className="text-base leading-6 font-medium">
                         <Link

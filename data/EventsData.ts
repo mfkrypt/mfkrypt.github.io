@@ -1,7 +1,7 @@
 export interface EventPhoto {
   src: string
   alt?: string
-  wide?: boolean
+  portrait?: boolean
 }
 
 export interface EventItem {
@@ -14,28 +14,26 @@ export interface EventItem {
 }
 
 const EventsData: EventItem[] = [
-  
   {
     slug: 'HTB Meetup',
     title: 'Speaker for HackTheBox Meetup @ GMI',
     date: '2025-07-26',
     location: 'Bangi, Malaysia',
     description:
-      ' I Had the honour of being the speaker for the HTB meetup hosted at GMI, the topic I presented was about Active Directory more specifically Kerberos for beginners to understand. Major thanks to GMI Cysec & ICE for having me.',
+      'I Had the honour of being the speaker for the HTB meetup hosted at GMI, the topic I presented was about Active Directory more specifically Kerberos for beginners to understand. Major thanks to GMI Cysec & ICE for having me.',
     photos: [
       {
         src: '/static/images/events/htb-meetup/1.jpeg',
-        alt: 'Placeholder',
+        alt: 'Presenting on Kerberos and Active Directory',
       },
       {
         src: '/static/images/events/htb-meetup/2.jpeg',
-        alt: 'Placeholder',
+        alt: 'HTB Meetup audience',
       },
       {
         src: '/static/images/events/htb-meetup/3.jpeg',
-        alt: 'Placeholder',
+        alt: 'HTB Meetup group photo',
       },
-      
     ],
   },
 
@@ -49,17 +47,17 @@ const EventsData: EventItem[] = [
     photos: [
       {
         src: '/static/images/events/sincon/1.jpeg',
-        alt: 'Placeholder',
+        alt: 'SINCON 2025 conference',
+        portrait: true,
       },
       {
         src: '/static/images/events/sincon/2.jpeg',
-        alt: 'Placeholder',
+        alt: 'Exploring RFID Hacking booth',
       },
       {
         src: '/static/images/events/sincon/3.jpeg',
-        alt: 'Placeholder',
+        alt: 'The Range Village AD range',
       },
-      
     ],
   },
 
@@ -69,24 +67,24 @@ const EventsData: EventItem[] = [
     date: '2025-02-23',
     location: 'Bangi, Malaysia',
     description:
-      ' I did a technical sharing session on using C2 frameworks like Sliver for red teaming. Also did another beginner session on binary exploitation, tackling common pwn challenges in CTFs ',
+      'I did a technical sharing session on using C2 frameworks like Sliver for red teaming. Also did another beginner session on binary exploitation, tackling common pwn challenges in CTFs.',
     photos: [
       {
         src: '/static/images/events/gmi-sharing/1.jpg',
-        alt: 'Placeholder',
+        alt: 'Workshop sharing session',
+        portrait: true,
       },
       {
         src: '/static/images/events/gmi-sharing/2.jpeg',
-        alt: 'Placeholder',
+        alt: 'Red team demonstration',
       },
       {
         src: '/static/images/events/gmi-sharing/3.jpeg',
-        alt: 'Placeholder',
+        alt: 'Binary exploitation session',
       },
-      
     ],
   },
-  
+
   {
     slug: 'MCC2024',
     title: 'Malaysia Cybersecurity Camp, MCC 2024',
@@ -97,19 +95,21 @@ const EventsData: EventItem[] = [
     photos: [
       {
         src: '/static/images/events/mcc/2.jpg',
-        alt: 'Placeholder',
+        alt: 'MCC 2024 activities',
+        portrait: true,
       },
       {
         src: '/static/images/events/mcc/3.jpg',
-        alt: 'Placeholder',
+        alt: 'Learning sessions at MCC',
+        portrait: true,
       },
       {
         src: '/static/images/events/mcc/4.jpg',
-        alt: 'Placeholder',
+        alt: 'MCC group activities',
       },
       {
         src: '/static/images/events/mcc/1.jpeg',
-        alt: 'Placeholder',
+        alt: 'MCC 2024 group photo',
       },
     ],
   },
